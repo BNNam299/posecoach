@@ -264,6 +264,32 @@ class CaptureController(
             ?: DeviceRotation.PORTRAIT
     }
 
+    /**
+     * Hướng mới phải giữ được bấy nhiêu mili-giây mới được đổi.
+     *
+     * ⚠️ VÌ SAO CẦN — lỗi PO gặp trên máy thật 12/09/2026: *"đã cầm máy dọc sẵn,
+     * máy báo là ảnh mẫu là ảnh dọc, cần xoay về"*.
+     *
+     * `OrientationEventListener` suy hướng từ gia tốc kế, tức từ **thành phần
+     * trọng lực nằm trong mặt phẳng màn hình**. Chúc máy xuống thì thành phần đó
+     * co lại gần bằng 0, và góc suy ra chỉ còn là nhiễu — nó nhảy sang ngang rồi
+     * về dọc liên tục.
+     *
+     * Mà app này **bảo người ta chúc máy xuống** (mục 3 và mục 4). Nghĩa là cảm
+     * biến hỏng đúng lúc app cần nó nhất.
+     *
+     * Framework có trả `ORIENTATION_UNKNOWN` khi máy nằm gần phẳng, nhưng ngưỡng
+     * đó rộng tay — vẫn lọt nhiều đợt nhiễu. Đòi giữ ổn định là lớp chặn thứ hai.
+     *
+     * ⚠️ Hệ quả nếu bỏ qua không chỉ là một câu nhắc sai: [DeviceRotation] còn
+     * đặt `targetRotation` cho luồng nhận diện. Lật nhầm là **toàn bộ khung xương
+     * xoay 90°** mà không có gì báo lỗi (FOOTGUNS 10).
+     */
+    private val GIU_HUONG_MS = 400L
+
+    private var huongChoDoi: DeviceRotation? = null
+    private var huongChoTuTimeMs = 0L
+
     private val orientationListener = object : OrientationEventListener(context) {
         override fun onOrientationChanged(orientation: Int) {
             if (orientation == ORIENTATION_UNKNOWN) return
@@ -273,7 +299,19 @@ class CaptureController(
                 in 225 until 315 -> DeviceRotation.LANDSCAPE_LEFT
                 else -> DeviceRotation.PORTRAIT
             }
-            if (next == currentRotation) return
+            if (next == currentRotation) {
+                huongChoDoi = null
+                return
+            }
+            // Hướng mới: bắt đầu đếm giờ, chưa đổi ngay.
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (next != huongChoDoi) {
+                huongChoDoi = next
+                huongChoTuTimeMs = now
+                return
+            }
+            if (now - huongChoTuTimeMs < GIU_HUONG_MS) return
+            huongChoDoi = null
             currentRotation = next
             // CameraX KHÔNG tự theo dõi hướng máy. Thiếu dòng này thì ảnh đưa vào
             // bộ nhận diện bị nghiêng 90° khi cầm ngang — app chạy bình thường,

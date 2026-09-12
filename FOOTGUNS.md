@@ -2038,3 +2038,46 @@ thang, không sửa hai đầu.
 ⚠️ Cũng đừng cào bằng mọi khung trong vùng đạt về 100: bộ giữ khung cần **xếp
 hạng** các khung với nhau, cào bằng thì nó giữ lại 5 khung ngẫu nhiên. Đó là lý
 do `VUNG_DAT` là 0,10 chứ không phải 0.
+
+---
+
+## 68. Cổng kiểm từ chối oan ảnh khuất vai
+
+**Sai:** `if (neck == null) return Rejected("Vai là mốc đo gốc của mọi tiêu chí")`.
+
+**Đúng:** không thấy vai **nhưng thấy mặt** thì vẫn NHẬN, kèm cảnh báo nói rõ mục
+nào sẽ bị bỏ. Chỉ từ chối khi **không thấy cả vai lẫn mặt**.
+
+**Vì sao:** câu "vai là mốc đo gốc của mọi tiêu chí" không còn đúng. Bảng mốc đo
+theo lớp (tài liệu v3 mục 4) quy định lớp CHEST/HEAD dùng **khuôn mặt** cho ba
+việc: hướng mẫu (face yaw), xa/gần (chiều cao khung mặt), lệch trái/phải (tâm
+khung mặt). Tài liệu còn ghi face yaw **chính xác hơn** phép suy từ vai — sai số
+3-5° so với 8-10°.
+
+Nó cũng trái với nguyên tắc ghi ngay ở đầu chính file `TemplateGate.kt`:
+*"mức 🔴 chỉ dành cho ảnh KHÔNG TÍNH ĐƯỢC GÌ CẢ"*, và trái quy tắc số 4 của dự án.
+
+PO gặp thật khi import ảnh chân dung khuất vai.
+
+---
+
+## 69. `OrientationEventListener` nhảy loạn đúng lúc app cần nó nhất
+
+**Sai:** đổi hướng cầm máy ngay khi `onOrientationChanged` trả về giá trị khác.
+
+**Đúng:** hướng mới phải giữ được **400ms** mới cho đổi.
+
+**Vì sao:** bộ này suy hướng từ **thành phần trọng lực nằm trong mặt phẳng màn
+hình**. Chúc máy xuống thì thành phần đó co về gần 0, góc suy ra chỉ còn là
+nhiễu — nó nhảy ngang/dọc liên tục.
+
+Mà app này **bảo người dùng chúc máy xuống** (mục 3 và mục 4). Cảm biến hỏng đúng
+lúc cần nó nhất. Framework có trả `ORIENTATION_UNKNOWN` khi máy gần phẳng nhưng
+ngưỡng đó rộng tay, vẫn lọt nhiều đợt nhiễu.
+
+Triệu chứng PO gặp: *"đã cầm máy dọc sẵn, máy báo là ảnh mẫu là ảnh dọc, cần xoay
+về"*.
+
+⚠️ Hậu quả không chỉ là một câu nhắc sai: `DeviceRotation` còn đặt `targetRotation`
+cho luồng nhận diện. Lật nhầm là **toàn bộ khung xương xoay 90°** mà không có gì
+báo lỗi (cùng họ với FOOTGUNS 10).

@@ -110,9 +110,26 @@ object TemplateGate {
         // --- Nhóm lõi: thiếu là không tính được tiêu chí nào ---
         val neck = frame.neck(CORE_VIS)
         val root = frame.root(CORE_VIS)
-        if (neck == null) return TemplateVerdict.Rejected(
-            reason = "Không thấy rõ hai vai của người trong ảnh",
-            hint = "Vai là mốc đo gốc của mọi tiêu chí. Chọn ảnh thấy rõ phần thân trên.",
+
+        // ⚠️ KHÔNG THẤY VAI THÌ VẪN NHẬN, NẾU THẤY MẶT (12/09/2026).
+        //
+        // Trước đây chỗ này TỪ CHỐI THẲNG với lý do "vai là mốc đo gốc của mọi
+        // tiêu chí". Câu đó không còn đúng, và nó trái với nguyên tắc ghi ngay ở
+        // đầu file này: *"mức 🔴 chỉ dành cho ảnh KHÔNG TÍNH ĐƯỢC GÌ CẢ"*.
+        //
+        // Bảng mốc đo theo lớp (tài liệu v3 mục 4) quy định lớp CHEST/HEAD dùng
+        // **khuôn mặt** làm mốc cho cả ba việc: hướng mẫu (face yaw), xa/gần
+        // (chiều cao khung mặt), lệch trái/phải (tâm khung mặt). Tài liệu còn ghi
+        // rõ face yaw **chính xác hơn** phép suy từ vai (3-5° so với 8-10°).
+        //
+        // Nên ảnh khuất vai vẫn chấm được 3-4 mục. Từ chối là từ chối oan.
+        val coMat = frame.at(Lm.NOSE, CORE_VIS) != null &&
+            (frame.at(Lm.LEFT_EYE, CORE_VIS) != null || frame.at(Lm.RIGHT_EYE, CORE_VIS) != null)
+
+        if (neck == null && !coMat) return TemplateVerdict.Rejected(
+            reason = "Không thấy rõ vai lẫn khuôn mặt của người trong ảnh",
+            hint = "Cần thấy rõ HOẶC hai vai HOẶC khuôn mặt thì mới đo được. " +
+                "Chọn ảnh rõ phần thân trên hoặc rõ mặt.",
         )
 
         val box = frame.subjectBox(CORE_VIS) ?: return TemplateVerdict.Rejected(
@@ -140,6 +157,11 @@ object TemplateGate {
 
         // --- Từ đây trở xuống là NHẬN, chỉ cảnh báo những gì sẽ bị bỏ qua ---
         val warnings = mutableListOf<String>()
+
+        if (neck == null) {
+            warnings += "Không thấy rõ hai vai — app sẽ đo bằng khuôn mặt. " +
+                "Các mục cần vai (độ nghiêng máy, ngửa/chúc theo thân) sẽ bị bỏ qua."
+        }
 
         if (spineTilt != null && spineTilt > WARN_SPINE_TILT_DEG) {
             warnings += "Trục thân nghiêng khoảng %.0f° so với phương thẳng đứng — ".format(spineTilt) +
