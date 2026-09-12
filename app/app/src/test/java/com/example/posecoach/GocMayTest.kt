@@ -239,8 +239,10 @@ class GocMayTest {
         // ⚠️ Đây là lý do tài liệu gọi chúng là "hai phương trình độc lập".
         // Đo trên ảnh mẫu thật: NGOI-ghe-giua-dong và nam-nen-trang-tay-tui có
         // y_hông gần bằng nhau (0,515 / 0,556) mà độ nghiêng lệch 36°.
-        val a = nguoi(-20.0, dayKhung = 0.30)
-        val b = nguoi(-20.0, dayKhung = 0.70)
+        // Giữ mốc trong vùng tin được (|0,5 − y| <= 0,15) — ngoài vùng đó thì
+        // phép đoán vFOV lấn át phép đo nên mục 3 tự bỏ, xem `measureElevationDeg`.
+        val a = nguoi(-20.0, dayKhung = 0.38)
+        val b = nguoi(-20.0, dayKhung = 0.62)
         assertEquals("Độ nghiêng phải giống nhau", goc(a)!!, goc(b)!!, 0.5)
         assertTrue(
             "Góc nhìn phải KHÁC nhau — mẫu nằm cao thấp khác nhau trong khung " +
@@ -253,8 +255,8 @@ class GocMayTest {
     fun `mau nam THAP trong khung thi goc nhin NGANG len`() {
         // Mẫu tụt xuống dưới khung = tia từ máy tới mẫu chúc xuống nhiều hơn
         // = máy đang cao hơn. Dấu phải phản ánh đúng chiều đó.
-        val cao = nhin(nguoi(0.0, dayKhung = 0.25))!!
-        val thap = nhin(nguoi(0.0, dayKhung = 0.75))!!
+        val cao = nhin(nguoi(0.0, dayKhung = 0.38))!!
+        val thap = nhin(nguoi(0.0, dayKhung = 0.62))!!
         assertTrue("mẫu cao trong khung: $cao, mẫu thấp: $thap", cao > thap)
     }
 
@@ -268,5 +270,44 @@ class GocMayTest {
         val m = Measurer.measure(chanDung, FramingClass.CHEST, minVis)
         assertNull(m.tiltDeg)
         assertNull(m.elevationDeg)
+    }
+
+    // =================================================================
+    // Mốc xa tâm khung: phần ĐOÁN lấn át phần ĐO
+    // =================================================================
+
+    /**
+     * Số hạng `(0,5 − y) × vFOV` tỉ lệ thẳng với khoảng cách từ mốc tới giữa
+     * khung. Ảnh mẫu không có thông số ống kính nên vFOV là số **đoán**, sai số
+     * thực tế cỡ ±20°:
+     *
+     * ```
+     * |0,5 − y| = 0,056  ->  sai  1,1°     (nam-nen-trang-tay-tui)
+     * |0,5 − y| = 0,224  ->  sai  4,5°     (kinh-ram-tai-nghe)
+     * |0,5 − y| = 0,263  ->  sai  5,3°     (NGOI-goc-cay)
+     * ```
+     *
+     * Ngưỡng đạt là 6°. Hai dòng cuối gần bằng cả ngưỡng — con số đưa ra là đoán
+     * chứ không phải đo. Thà bỏ mục đó còn hơn nhắc người dùng đi theo số bịa.
+     */
+    @Test
+    fun `moc qua xa tam khung thi BO muc 3, khong dua ra so bia`() {
+        // dayKhung 0,20 -> mốc hông nằm ở ~0,21, lệch tâm 0,29
+        assertNull(nhin(nguoi(0.0, dayKhung = 0.20)))
+        assertNull(nhin(nguoi(0.0, dayKhung = 0.82)))
+    }
+
+    @Test
+    fun `moc gan tam thi van do binh thuong`() {
+        assertNotNull(nhin(nguoi(0.0, dayKhung = 0.45)))
+        assertNotNull(nhin(nguoi(0.0, dayKhung = 0.58)))
+    }
+
+    @Test
+    fun `bo muc 3 KHONG keo theo muc 4`() {
+        // Độ nghiêng trục thân không dính gì tới vị trí mốc trong khung.
+        val f = nguoi(-25.0, dayKhung = 0.20)
+        assertNull(nhin(f))
+        assertNotNull(goc(f))
     }
 }

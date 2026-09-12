@@ -62,6 +62,18 @@ data class CaptureUiState(
      */
     val debugFacePitchDeg: Double? = null,
 
+    /**
+     * ⚠️ TẠM — số đo thật của mấy mục hay sai, hiện lên màn hình.
+     *
+     * Có vì một lý do cụ thể: PO báo *"máy liên tục nhắc zoom lại gần và hạ máy
+     * xuống, càng hạ càng sai"* với một ảnh mẫu chụp thẳng chính diện. Không tái
+     * hiện được trên máy dev, mà đoán thêm một vòng nữa thì tốn một buổi test.
+     *
+     * Hiện thẳng `ảnh mẫu / khung hình` của từng mục thì buổi test sau nói ngay
+     * được mục nào lệch và lệch bao nhiêu. Gỡ sau khi tìm ra.
+     */
+    val debugDo: String? = null,
+
     /** Anh mau la anh doc hay ngang. `null` = chua biet. */
     val templatePortrait: Boolean? = null,
 

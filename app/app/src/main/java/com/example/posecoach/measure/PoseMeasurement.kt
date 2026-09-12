@@ -275,6 +275,15 @@ object Measurer {
     const val VFOV_ANH_MAU = 65.0
 
     /**
+     * Mốc đo lệch khỏi tâm khung quá mức này thì mục 3 không tin được nữa.
+     *
+     * 0,15 chọn từ bảng sai số trong `measureElevationDeg`: nhân với sai số vFOV
+     * ±20° ra 3°, tức nửa ngưỡng đạt của lớp toàn thân. Quá mức đó thì phần đoán
+     * lấn át phần đo.
+     */
+    const val MOC_LECH_TAM_TOI_DA = 0.15
+
+    /**
      * Góc chĩa vào ống kính tối đa mà một đoạn cơ thể còn dùng để đo được, ĐỘ.
      *
      * Đo từ 19 ảnh có khoảng cách bằng thước: đoạn hông→gót của người ĐỨNG bình
@@ -514,6 +523,26 @@ object Measurer {
     ): Double? {
         val tilt = measureTiltDeg(f, v) ?: return null
         val y = anchorY(f, framing.elevationAnchor, v) ?: return null
+
+        // ⚠️ MỐC NẰM XA TÂM KHUNG THÌ BỎ MỤC NÀY — phép đoán vFOV không đỡ nổi.
+        //
+        // Số hạng `(0,5 − y) × vFOV` tỉ lệ thẳng với khoảng cách từ mốc tới giữa
+        // khung. Ảnh mẫu không có thông số ống kính (0/13 ảnh mẫu còn EXIF) nên
+        // vFOV là số ĐOÁN, sai số thực tế cỡ ±20°. Tính ra sai số của mục này:
+        //
+        // | |0,5 − y| | sai nếu vFOV lệch 20° |
+        // |---|---|
+        // | 0,056 (`nam-nen-trang-tay-tui`) | 1,1° |
+        // | 0,143 (`quay-lung-cong-vien`)   | 2,9° |
+        // | 0,224 (`kinh-ram-tai-nghe`)     | **4,5°** |
+        // | 0,263 (`NGOI-goc-cay`)          | **5,3°** |
+        //
+        // Ngưỡng đạt của mục này là 6° (3-4° với chân dung). Hai dòng cuối gần
+        // bằng cả ngưỡng — tức con số đưa ra là đoán chứ không phải đo. Thà bỏ
+        // mục đó và chia lại trọng số (quy tắc số 4) còn hơn nhắc người dùng đi
+        // theo một con số bịa.
+        if (kotlin.math.abs(0.5 - y) > MOC_LECH_TAM_TOI_DA) return null
+
         return tilt + (0.5 - y) * vFovDeg
     }
 

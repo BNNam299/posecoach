@@ -311,6 +311,20 @@ class CaptureViewModel : ViewModel() {
             )
         } else null
 
+        // ⚠️ TẠM — xem `CaptureUiState.debugDo`.
+        val dbg = run {
+            val t = profile?.measurement
+            val l = live
+            if (t == null || l == null) null else {
+                fun f(v: Double?) = v?.let { "%+.0f".format(it) } ?: "--"
+                fun g(v: Double?) = v?.let { "%.2f".format(it) } ?: "--"
+                "m3 " + f(t.elevationDeg) + "/" + f(l.elevationDeg) +
+                    "  m4 " + f(t.tiltDeg) + "/" + f(l.tiltDeg) +
+                    "  cỡ " + g(t.scale) + "/" + g(l.scale) +
+                    "  vFOV " + (vFovDeg?.let { "%.0f".format(it) } ?: "65?")
+            }
+        }
+
         val result = eng?.update(
             live = live,
             nowMs = System.currentTimeMillis(),
@@ -345,6 +359,7 @@ class CaptureViewModel : ViewModel() {
                 matchPercent = result?.matchPercent,
                 readyToPose = result?.readyToPose == true,
                 stableForMs = result?.stableForMs ?: 0L,
+                debugDo = dbg,
             )
         }
     }

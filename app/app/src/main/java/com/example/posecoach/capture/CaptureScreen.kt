@@ -579,6 +579,15 @@ fun CaptureScreen(
                 }
                 // ⚠️ TẠM — xem `CaptureUiState.debugFacePitchDeg`. Gỡ sau khi
                 // buổi test xác nhận `headEulerAngleX` chạy đúng chiều.
+                state.debugDo?.let { d ->
+                    Text(
+                        d,
+                        color = Color(0xCCFFFFFF), fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                    )
+                }
                 state.debugFacePitchDeg?.let { g ->
                     Text(
                         "góc mặt %+.0f°".format(g),

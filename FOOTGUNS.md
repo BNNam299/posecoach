@@ -2301,3 +2301,34 @@ mà còn **nhảy dấu**. Người dùng xoay theo hướng app bảo thì số
 
 ⚠️ Lật ngang đổi dấu góc quay TRÁI/PHẢI, nhưng **không** đổi góc ngửa/chúc — gương
 ngang không làm đầu ngẩng hay cúi khác đi. Đừng lật nhầm cả hai.
+
+---
+
+## 79. Mục 3 chỉ tin được khi mốc đo nằm GẦN TÂM khung ảnh mẫu
+
+**Sai:** luôn tính `elevation = tilt + (0,5 − y) × vFOV` cho mọi ảnh mẫu.
+
+**Đúng:** bỏ mục này khi `|0,5 − y| > 0,15` trên ảnh mẫu.
+
+**Vì sao:** ảnh mẫu **không có thông số ống kính** (đo 12/09/2026: 0/13 ảnh mẫu cài
+sẵn còn EXIF máy ảnh), nên `vFOV` là số **đoán** — sai số thực tế cỡ ±20°. Mà số
+hạng `(0,5 − y) × vFOV` tỉ lệ thẳng với khoảng cách từ mốc tới giữa khung:
+
+```
+|0,5 − y|          sai nếu vFOV lệch 20°
+0,056   nam-nen-trang-tay-tui      1,1°
+0,143   quay-lung-cong-vien        2,9°
+0,224   kinh-ram-tai-nghe          4,5°      <- gần bằng cả ngưỡng
+0,263   NGOI-goc-cay               5,3°      <- gần bằng cả ngưỡng
+```
+
+Ngưỡng đạt của mục này là 6° (3-4° với chân dung). Hai dòng cuối nghĩa là con số
+đưa ra **là đoán chứ không phải đo** — và người dùng sẽ đi theo nó mãi không tới.
+
+Thà bỏ mục và chia lại trọng số (quy tắc số 4).
+
+⚠️ Bỏ mục 3 **không** kéo theo mục 4: độ nghiêng trục thân không dính gì tới vị trí
+mốc trong khung.
+
+⚠️ Đây cũng là lý do đừng vội hạ `MOC_LECH_TAM_TOI_DA` xuống cho "đo được nhiều
+hơn". Đo được nhiều hơn mà sai thì tệ hơn không đo.
