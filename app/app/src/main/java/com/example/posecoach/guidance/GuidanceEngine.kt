@@ -178,7 +178,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 Criterion.YAW -> dev.yawDeg
                 Criterion.SCALE -> dev.scaleRatio
                 Criterion.CENTER -> dev.centerX
-                Criterion.ELEVATION -> dev.elevationY
+                Criterion.ELEVATION -> dev.elevationDeg
                 Criterion.ROLL -> dev.rollDeg
                 Criterion.PITCH -> dev.pitchCue
                 Criterion.PERSPECTIVE -> dev.perspective
@@ -442,7 +442,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 b - a
             }
             Criterion.CENTER -> diff(t.centerX, live.centerX)
-            Criterion.ELEVATION -> diff(t.elevationY, live.elevationY)
+            Criterion.ELEVATION -> diff(t.elevationDeg, live.elevationDeg)
             // Cùng luật "chỉ so khi cùng đường đo" như mục zoom bên dưới.
             Criterion.PITCH -> PitchSource.entries.firstNotNullOfOrNull { src ->
                 val a = t.pitchCue[src] ?: return@firstNotNullOfOrNull null

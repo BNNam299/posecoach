@@ -97,7 +97,22 @@ object GuidanceConfig {
         // muốn: ảnh toàn thân (scale ~ 0,9) được phép lệch ~0,063 khung; ảnh chân
         // dung cận (scale ~ 0,2) chỉ được lệch ~0,014 — đúng vậy, vì chụp cận thì
         // nhích máy một chút đã đổi hẳn bố cục.
-        Criterion.ELEVATION -> templateScale?.let { 0.07 * it }
+        // ⚠️ ĐÃ ĐỔI HẲN ĐƠN VỊ SANG ĐỘ (12/09/2026).
+        //
+        // Trước đây mục này đo **vị trí mốc trong khung hình**, nên ngưỡng tính
+        // theo phần chiều cao khung. Đo lại thì thấy chỉ số đó nhạy với khoảng
+        // cách (0,058) hơn cả với độ cao máy (0,041) — xem `measureElevationDeg`.
+        //
+        // Giờ nó là GÓC THẬT, nên ngưỡng là ĐỘ và không cần quy đổi gì nữa. Đây
+        // cũng là lý do tham số `templateScale` không còn dùng ở đây: góc không
+        // phụ thuộc mẫu to hay nhỏ trong khung.
+        //
+        // ⚠️ CON SỐ DƯỚI ĐÂY LÀ TẠM. Chặn trên của nhiễu đo được từ 5 ảnh chụp
+        // cùng góc máy nhưng khác khoảng cách và zoom là 6,3° — mà con số đó đã
+        // bao gồm cả việc cố ý đổi khung, nên nhiễu thật nhỏ hơn. Buổi đo trên
+        // máy thật (tripod, người đứng yên 20 giây) phải chốt lại theo quy tắc
+        // số 3: accept >= 3 lần độ lệch chuẩn.
+        Criterion.ELEVATION -> 6.0
 
         // ⚠️ KHÔNG QUY ĐỔI ĐƯỢC — mục cần đo kỹ nhất trong buổi đo.
         //
@@ -167,7 +182,8 @@ object GuidanceConfig {
             // mét nên giữ nguyên đơn vị tỉ lệ: 5% là mức nhỏ nhất mắt thường thấy.
             Criterion.SCALE -> 0.05
             Criterion.CENTER -> 0.02
-            Criterion.ELEVATION -> templateScale?.let { 0.045 * it } ?: 0.01
+            // Độ. Dưới mức này thì nâng hay hạ máy cũng không ai thấy ảnh khác đi.
+            Criterion.ELEVATION -> 4.0
             Criterion.PITCH -> 0.06
             // Dưới 2 độ thì xoay tay cũng không chỉnh nổi, đừng nhắc.
             Criterion.ROLL -> 2.0

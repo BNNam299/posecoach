@@ -27,7 +27,7 @@ class ShotScorerTest {
     private fun m(
         scale: Double? = 0.60,
         centerX: Double? = 0.50,
-        elevationY: Double? = 0.50,
+        elevationDeg: Double? = 0.0,
         yawDeg: Double? = 0.0,
         faceYawDeg: Double? = null,
         eyesOpen: Double? = null,
@@ -39,7 +39,7 @@ class ShotScorerTest {
         framing = FramingClass.FULL,
         scale = scale,
         centerX = centerX,
-        elevationY = elevationY,
+        elevationDeg = elevationDeg,
         yawDeg = yawDeg,
         faceYawDeg = faceYawDeg,
         eyesOpen = eyesOpen,
@@ -113,7 +113,7 @@ class ShotScorerTest {
         val tpl = m()
         // Khung này khớp hoàn hảo ở mọi mục đo được, chỉ là không thấy hông nên
         // không đo được cao/thấp. Điểm phải vẫn là tuyệt đối.
-        val thieuMoc = scoreOf(tpl, m(elevationY = null))
+        val thieuMoc = scoreOf(tpl, m(elevationDeg = null))
 
         assertEquals(100.0, thieuMoc.total, 1e-9)
         assertFalse("Mục không đo được không được có mặt", thieuMoc.perCriterion.containsKey("cao_thap"))
@@ -123,7 +123,7 @@ class ShotScorerTest {
     fun `mat moc thi tong trong so dung phai giam`() {
         val tpl = m()
         val du = scoreOf(tpl, m())
-        val thieu = scoreOf(tpl, m(elevationY = null, yawDeg = null))
+        val thieu = scoreOf(tpl, m(elevationDeg = null, yawDeg = null))
         assertTrue(thieu.weightUsed < du.weightUsed)
     }
 
@@ -133,7 +133,7 @@ class ShotScorerTest {
         val duMuc = scoreOf(tpl, m())
         val thieuMuc = scoreOf(
             tpl,
-            m(centerX = null, elevationY = null, yawDeg = null, pitchCue = emptyMap(), pose = emptyMap()),
+            m(centerX = null, elevationDeg = null, yawDeg = null, pitchCue = emptyMap(), pose = emptyMap()),
         )
         assertTrue(duMuc.trustworthy)
         assertFalse("Chỉ đo được 1 mục thì không đủ căn cứ tin", thieuMuc.trustworthy)
@@ -142,7 +142,7 @@ class ShotScorerTest {
     @Test
     fun `khong do duoc gi ca thi diem bang khong`() {
         val trong = m(
-            scale = null, centerX = null, elevationY = null,
+            scale = null, centerX = null, elevationDeg = null,
             yawDeg = null, pitchCue = emptyMap(), pose = emptyMap(),
         )
         val s = scoreOf(m(), trong)

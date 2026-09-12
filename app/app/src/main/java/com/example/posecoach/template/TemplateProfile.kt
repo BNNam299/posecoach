@@ -105,7 +105,7 @@ enum class Criterion(
     PERSPECTIVE("zoom_khoangcach", "Chỗ đứng", 1.5, 0.30, groupLabel = "Khoảng cách & khung hình"),
     SCALE("xa_gan", "Khung hình", 3.0, 0.30, groupLabel = "Khoảng cách & khung hình"),
     CENTER("trai_phai", "Lệch trái/phải", 2.5, 0.22),
-    ELEVATION("cao_thap", "Máy cao/thấp", 2.5, 0.15),
+    ELEVATION("cao_thap", "Máy cao/thấp", 2.5, 35.0),
 
     /**
      * MỤC 4 — MÁY NGỬA/CHÚC.
@@ -318,8 +318,8 @@ data class TemplateProfile(
                 "không xác định được tâm chủ thể trong ảnh mẫu",
             )
             check(
-                Criterion.ELEVATION, m.elevationY != null,
-                "không thấy ${framing.elevationAnchor.cueLabel} trong ảnh mẫu nên không biết máy nên cao hay thấp",
+                Criterion.ELEVATION, m.elevationDeg != null,
+                "không thấy hông mẫu trong ảnh mẫu nên không suy được máy đứng cao hay thấp — ảnh chân dung thì mục ngửa/chúc gánh phần này",
             )
             check(
                 Criterion.ROLL, m.rollDeg.isNotEmpty(),

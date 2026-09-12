@@ -375,9 +375,21 @@ internal fun cueTextFor(status: CriterionStatus): String {
         // Cách xử lý: **nói ra điều app QUAN SÁT được trước, rồi mới tới hành động**.
         // Quan sát thì đúng ở mọi chế độ; nếu hành động có ngược thì người dùng tự
         // nhận ra ngay thay vì làm theo mãi mà càng tệ.
+        // ⚠️ GIỜ LÀ GÓC THẬT, KHÔNG CÒN PHẢI SUY TỪ VỊ TRÍ TRONG KHUNG.
+        //
+        // FOOTGUNS 62 ghi lại một buổi test hỏng vì chỗ này: app đo mẫu nằm thấp
+        // trong khung rồi suy ra "hạ máy xuống", càng hạ càng tệ. Lỗi nằm ở chỗ
+        // suy — một con số về bố cục không giải ngược ra được một động tác.
+        //
+        // `elevationDeg` âm = máy đang trên cao chúc xuống. `signed` = live trừ
+        // mẫu. Nên signed > 0 nghĩa là máy đang CHÚC ÍT HƠN ảnh mẫu, phải lên cao
+        // thêm. Không còn khâu suy luận nào ở giữa để mà sai.
+        //
+        // Nói cả hai động tác trong một câu, vì người cầm máy làm chúng cùng lúc:
+        // giơ lên mà không chúc xuống thì mẫu tụt khỏi khung ngay.
         Criterion.ELEVATION -> when {
-            signed > 0 -> "Mẫu đang THẤP hơn ảnh mẫu — hạ máy xuống một chút"
-            else -> "Mẫu đang CAO hơn ảnh mẫu — giơ máy lên một chút"
+            signed > 0 -> "Giơ máy cao hơn rồi chúc xuống, đến khi tích sáng"
+            else -> "Hạ máy thấp xuống rồi hất lên, đến khi tích sáng"
         }
 
         // pitchCue dương = máy đang hất lên.

@@ -1895,6 +1895,44 @@ bảo *"hạ máy xuống"*, càng hạ càng tệ; **tự giơ lên rồi chúc
 ⚠️ Cùng họ với FOOTGUNS 54: suy trực tiếp một bước thì sai, phải dựng lại từ quy tắc
 gốc và đếm xem người dùng thật sự làm **mấy** động tác cùng lúc.
 
+### ✅ 12/09/2026 — ĐÃ CHỮA TẬN GỐC, mục này chỉ còn giá trị lịch sử
+
+Chữa câu chữ chỉ là vá. Gốc bệnh là **phép đo sai đối tượng**: mục này đo `y` của một
+mốc trên khung hình (bố cục) rồi cố suy ngược ra một động tác của tay người. Một con
+số về bố cục **không giải ngược ra được một động tác** — vì nó bị ít nhất bốn nguyên
+nhân độc lập cùng tác động.
+
+Nay `elevationDeg` đo **góc thật bằng độ** từ khung xương 3D, nên không còn khâu suy
+luận nào ở giữa để mà sai. Xem `measureElevationDeg` và `GocMayTest`.
+
+---
+
+## 66. Không thấy hông thì ĐỪNG lấy trục cổ→đầu thay cho trục thân
+
+**Sai:** ảnh chân dung không thấy hông, nên dùng vector vai→mũi làm trục thân để vẫn
+đo được góc máy.
+
+**Đúng:** trả về `null`. Không đo được thì bỏ mục đó ra và chia lại trọng số
+(quy tắc số 4).
+
+**Vì sao:** đo ngày 12/09/2026 trên 18 ảnh, so hai đường:
+
+```
+tương quan giữa trục thân và trục cổ→đầu :  0,287
+độ lệch chuẩn của phần chênh             : 23,9°
+ca tệ nhất (NGOI-ghe-giua-dong)          : trục thân +39,7°  so với  cổ→đầu −40,1°
+```
+
+Ngược hẳn dấu. Lý do: **đầu gật tự do**. Trục cổ→đầu bám tư thế đầu chứ không bám vị
+trí máy — đúng cùng một bệnh đã khiến mục "chỗ đứng" bị loại khỏi ảnh chân dung.
+
+Nó nguy hiểm vì trông rất hợp lý và **ổn định trong cùng một buổi chụp** (5 ảnh cùng
+buổi chỉ lệch 7,1°), nên thử nhanh sẽ tưởng là chạy được. Chỉ lộ khi so ảnh mẫu với
+người khác có tư thế đầu khác.
+
+Với ảnh chân dung thì mục **ngửa/chúc** (đo từ khuôn mặt) gánh phần thông tin góc — và
+với chân dung, góc giữa MẶT và ống kính mới đúng là thứ nhìn thấy được.
+
 ---
 
 ## 63. Khung camera phải theo TỈ LỆ ẢNH MẪU, nếu không toạ độ không so được

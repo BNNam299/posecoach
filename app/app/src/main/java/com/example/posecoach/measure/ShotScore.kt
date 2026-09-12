@@ -34,7 +34,7 @@ data class ShotDeviation(
     /** Chênh trái/phải, theo tỉ lệ bề ngang khung hình. */
     val centerX: Double?,
     /** Chênh cao/thấp, theo tỉ lệ chiều cao khung hình. */
-    val elevationY: Double?,
+    val elevationDeg: Double?,
     /** Chênh NGHIÊNG NGANG, ĐỘ. Luôn dương. */
     val rollDeg: Double?,
 
@@ -149,7 +149,7 @@ object ShotScorer {
         // xử lý riêng bên dưới. Xem [directionFactor] để biết vì sao.
         add(Criterion.SCALE, dev.scaleRatio?.div(Criterion.SCALE.reference))
         add(Criterion.CENTER, dev.centerX?.div(Criterion.CENTER.reference))
-        add(Criterion.ELEVATION, dev.elevationY?.div(Criterion.ELEVATION.reference))
+        add(Criterion.ELEVATION, dev.elevationDeg?.div(Criterion.ELEVATION.reference))
         add(Criterion.PITCH, dev.pitchCue?.div(Criterion.PITCH.reference))
         add(Criterion.PERSPECTIVE, dev.perspective?.div(Criterion.PERSPECTIVE.reference))
         add(Criterion.POSE, dev.poseDeg?.div(Criterion.POSE.reference))
@@ -234,7 +234,7 @@ object ShotScorer {
                 if (t <= 1e-6) null else abs(c - t) / t
             },
             centerX = pair(template.centerX, candidate.centerX) { t, c -> abs(c - t) },
-            elevationY = pair(template.elevationY, candidate.elevationY) { t, c -> abs(c - t) },
+            elevationDeg = pair(template.elevationDeg, candidate.elevationDeg) { t, c -> abs(c - t) },
             rollDeg = rollDeviation(template, candidate)?.second,
             rollSource = rollDeviation(template, candidate)?.first,
             pitchCue = pitchDeviation(template, candidate)?.second,

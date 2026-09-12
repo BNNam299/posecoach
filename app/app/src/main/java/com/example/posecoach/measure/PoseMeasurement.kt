@@ -3,7 +3,6 @@ package com.example.posecoach.measure
 import com.example.posecoach.face.FaceInfo
 import com.example.posecoach.pose.Box
 import com.example.posecoach.pose.CenterAnchor
-import com.example.posecoach.pose.ElevationAnchor
 import com.example.posecoach.pose.FramingClass
 import com.example.posecoach.pose.Lm
 import com.example.posecoach.pose.P2
@@ -116,7 +115,7 @@ data class PoseMeasurement(
      * Nâng máy lên cao thì mẫu tụt xuống thấp trong khung — nên chính con số này
      * là dấu vết của độ cao đặt máy.
      */
-    val elevationY: Double?,
+    val elevationDeg: Double?,
 
     /**
      * MỤC 1 — HƯỚNG MẪU đo bằng THÂN. Góc xoay quanh trục đứng, ĐỘ.
@@ -204,7 +203,7 @@ data class PoseMeasurement(
 ) {
     /** Số mục đo được. Mục không đo được sẽ bị bỏ ra khi chấm điểm, KHÔNG bị trừ điểm. */
     val measuredCount: Int
-        get() = listOfNotNull(scale, centerX, elevationY, yawDeg).size +
+        get() = listOfNotNull(scale, centerX, elevationDeg, yawDeg).size +
             (if (pitchCue.isNotEmpty()) 1 else 0) +
             (if (rollDeg.isNotEmpty()) 1 else 0) +
             if (poseAngles.isNotEmpty()) 1 else 0
@@ -245,7 +244,7 @@ object Measurer {
             framing = framing,
             scale = measureScale(frame, framing.scaleAnchor, minVisibility),
             centerX = measureCenterX(frame, framing.centerAnchor, minVisibility),
-            elevationY = measureElevationY(frame, framing.elevationAnchor, minVisibility),
+            elevationDeg = measureElevationDeg(frame, minVisibility),
             yawDeg = frame.bodyYawDeg(minVisibility),
             faceYawDeg = face?.yawDeg,
             eyesOpen = face?.eyesOpen,
@@ -357,25 +356,78 @@ object Measurer {
     // MỤC 3 — MÁY CAO/THẤP
     // =================================================================
 
-    private fun measureElevationY(
-        f: PoseFrame,
-        anchor: ElevationAnchor,
-        v: Float,
-    ): Double? = when (anchor) {
-        ElevationAnchor.MID_HIP -> f.root(v)?.y
-        ElevationAnchor.MID_TORSO -> {
-            val neck = f.neck(v)
-            val root = f.root(v)
-            if (neck != null && root != null) (neck.y + root.y) / 2.0 else null
-        }
-        ElevationAnchor.EYE_LINE -> {
-            val le = f.at(Lm.LEFT_EYE, v)
-            val re = f.at(Lm.RIGHT_EYE, v)
-            when {
-                le != null && re != null -> (le.y + re.y) / 2.0
-                else -> (le ?: re)?.y ?: f.at(Lm.NOSE, v)?.y
-            }
-        }
+    /**
+     * GÓC NÂNG CỦA MÁY so với chủ thể, tính bằng **ĐỘ**.
+     *
+     * Âm = máy đang ở trên, chúc xuống. Dương = máy ở dưới, ngửa lên. 0 = ngang tầm.
+     *
+     * ## Vì sao không đo bằng vị trí trong khung nữa
+     *
+     * Bản cũ trả về `y` của một mốc trên khung hình — tức là **bố cục**, không
+     * phải độ cao máy. Hai cách cầm máy hoàn toàn khác nhau cho ra cùng một con
+     * số: máy ngang ngực để thẳng, và máy giơ trên đầu chúc xuống, đều có thể
+     * đặt hông mẫu ở `y = 0,62`.
+     *
+     * Đo ngày 12/09/2026 cho thấy nó còn tệ hơn thế — **nhạy với khoảng cách hơn
+     * là với độ cao máy**:
+     *
+     * | | chỉ số cũ `y` | góc (hàm này) |
+     * |---|---|---|
+     * | Đổi góc máy ~55° | đổi **0,041** | đổi **55°** |
+     * | Giữ nguyên góc, chỉ đi lại gần/xa | đổi **0,058** | đổi **6,3°** |
+     * | Ngưỡng đạt khi đó | ~0,035 | |
+     *
+     * Tín hiệu 0,041 mà nhiễu 0,058 — tỉ lệ dưới 1. Đó là lời giải thích toán học
+     * cho vòng lặp *"làm theo hướng dẫn mãi mà không bao giờ đạt"*: người dùng
+     * chỉnh đúng thứ được bảo, nhưng chỉ cần nhích chân là con số nhảy nhiều hơn.
+     *
+     * ## Cách đo
+     *
+     * Lấy trục thân trong **khung xương 3D** (`worldLandmarks`) rồi tính góc giữa
+     * nó và mặt phẳng ảnh. Miễn nhiễm với zoom, với khoảng cách, và với việc ảnh
+     * mẫu đã bị **cắt cúp** — vì nó chỉ đọc quan hệ bên trong cơ thể.
+     *
+     * Kiểm trên 5 ảnh chụp cùng góc máy nhưng khác hẳn khoảng cách và zoom:
+     * −19,4 / −17,6 / −16,4 / −20,4 / −14,1 độ. Và trên hai ảnh đối cực: ngồi ghế
+     * chụp ngửa từ dưới **+39,7°**, chân dung chúc thẳng từ trên đầu **−52,8°**.
+     *
+     * ⚠️ **CHỈ DÙNG `worldLandmarks` CHO HƯỚNG, KHÔNG CHO KHOẢNG CÁCH** — xem
+     * FOOTGUNS 64. Mô hình trả về hướng thật, nhưng độ sâu thì nó bịa ra một hằng
+     * số giải phẫu đã học thuộc.
+     *
+     * ## Vì sao trả về `null` với ảnh chân dung
+     *
+     * Cần **thấy hông** để có trục thân. Không thấy hông thì đường duy nhất còn
+     * lại là trục cổ→đầu, mà đã đo và loại: tương quan với trục thân chỉ **0,287**,
+     * độ lệch chuẩn **23,9°**, có ca ngược hẳn dấu. Đầu gật tự do nên nó bám tư
+     * thế đầu chứ không bám vị trí máy.
+     *
+     * Ảnh chân dung thì mục **ngửa/chúc** (đo từ khuôn mặt) gánh phần thông tin
+     * góc — và với ảnh chân dung, góc giữa MẶT và ống kính mới đúng là thứ nhìn
+     * thấy được. Không đo được thì bỏ ra, không đoán (quy tắc số 4).
+     */
+    private fun measureElevationDeg(f: PoseFrame, v: Float): Double? {
+        // Đòi cả 2D lẫn 3D: `at()` lọc điểm nằm NGOÀI khung mà MediaPipe vẫn tự
+        // tin bịa ra. Thiếu bước này thì hông ở ngoài khung vẫn cho ra một góc.
+        if (f.at(Lm.LEFT_HIP, v) == null && f.at(Lm.RIGHT_HIP, v) == null) return null
+        if (f.at(Lm.LEFT_SHOULDER, v) == null && f.at(Lm.RIGHT_SHOULDER, v) == null) return null
+
+        val lh = f.world(Lm.LEFT_HIP, v); val rh = f.world(Lm.RIGHT_HIP, v)
+        val ls = f.world(Lm.LEFT_SHOULDER, v); val rs = f.world(Lm.RIGHT_SHOULDER, v)
+        val hip = midP3(lh, rh) ?: return null
+        val sh = midP3(ls, rs) ?: return null
+
+        val dy = sh.y - hip.y
+        val dz = sh.z - hip.z
+        // Trục thân quá ngắn trên ảnh thì góc nhiễu loạn — thà bỏ.
+        if (kotlin.math.hypot(dy, dz) < 1e-3) return null
+        // y của MediaPipe hướng XUỐNG, nên -dy là "lên trên".
+        return Math.toDegrees(kotlin.math.atan2(dz, -dy))
+    }
+
+    private fun midP3(a: P3?, b: P3?): P3? = when {
+        a != null && b != null -> P3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2)
+        else -> a ?: b
     }
 
     // =================================================================
