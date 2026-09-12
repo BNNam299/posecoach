@@ -5,6 +5,7 @@ import kotlin.math.abs
 import com.example.posecoach.measure.PitchSource
 import com.example.posecoach.measure.PoseMeasurement
 import com.example.posecoach.pose.PoseFrame
+import com.example.posecoach.pose.YawSource
 import com.example.posecoach.measure.ShotScorer
 import com.example.posecoach.template.Criterion
 import com.example.posecoach.template.Stage
@@ -544,9 +545,41 @@ class GuidanceEngine(private val profile: TemplateProfile) {
      */
     private fun signedDelta(c: Criterion, t: PoseMeasurement, live: PoseMeasurement): Double? =
         when (c) {
-            // Cố ý bỏ trống: dấu của góc xoay chưa kiểm chứng trên máy thật, và
-            // câu nhắc về hướng mẫu không nói chiều (FOOTGUNS 28).
-            Criterion.YAW -> null
+            // ⚠️ ĐÃ KIỂM CHỨNG DẤU 12/09/2026 — trước đây bỏ trống vì chưa đo.
+            //
+            // Đo trên ảnh mẫu thật, đối chiếu góc tính được với vị trí mũi so với
+            // giữa hai vai TRÊN ẢNH (mũi lệch về bên nào thì mẫu quay về bên đó):
+            //
+            // | ảnh | góc | mũi lệch |
+            // |---|---|---|
+            // | di-bo-ben-ho (đi nghiêng sang trái ảnh) | −98,1° | −0,062 |
+            // | NGOI-goc-cay | +47,3° | +0,033 |
+            // | toc-hong-ben-be-boi | −14,3° | −0,105 |
+            // | selfie-tai-nghe-nhin-nghieng | +6,6° | +0,122 |
+            //
+            // Khớp nhau ở mọi góc lớn. Quy ước rút ra:
+            //   góc DƯƠNG = mẫu quay về phía TRÁI CỦA HỌ
+            //   góc ÂM    = quay về phía PHẢI CỦA HỌ
+            //
+            // Phải theo đúng luật "chỉ so khi cùng đường đo" như `yawDeviation`:
+            // góc mặt và góc thân là hai thang khác nhau.
+            Criterion.YAW -> {
+                val dungMat = t.framing.yawSource == YawSource.FACE_YAW
+                val a: Double?
+                val b: Double?
+                if (dungMat && t.faceYawDeg != null && live.faceYawDeg != null) {
+                    a = t.faceYawDeg; b = live.faceYawDeg
+                } else {
+                    a = t.yawDeg; b = live.yawDeg
+                }
+                if (a == null || b == null) null else {
+                    // Đưa về đường ngắn nhất trên vòng tròn, giữ dấu.
+                    var d = b - a
+                    while (d > 180.0) d -= 360.0
+                    while (d <= -180.0) d += 360.0
+                    d
+                }
+            }
             Criterion.SCALE -> {
                 val a = t.scale; val b = live.scale
                 if (a == null || b == null || a <= 1e-6) null else (b - a) / a

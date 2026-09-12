@@ -2223,3 +2223,34 @@ và −52,8°. Khoảng trống rộng từ 20° tới 40°.
 thuộc kiểu nào thì đừng giả vờ biết"* — rồi giải bằng cách đưa cả hai lựa chọn cho
 người dùng. Nhưng đẩy một quyết định nhiếp ảnh sang người không biết nhiếp ảnh là
 đúng thứ sản phẩm này sinh ra để tránh. Nay đo được góc thì phải tự quyết.
+
+---
+
+## 76. Câu "xoay người từ từ" mà không nói chiều là nửa câu
+
+**Sai:** *"Bảo mẫu xoay người từ từ đến khi tích sáng"* — bỏ trống chiều, với lý do
+*"dấu của góc xoay chưa kiểm chứng trên máy thật"* (FOOTGUNS 28).
+
+**Đúng:** nói rõ sang trái hay sang phải, **theo góc nhìn của MẪU**.
+
+**Vì sao lý do cũ hết hiệu lực:** dấu đã đo được ngày 12/09/2026, bằng cách đối
+chiếu góc tính ra với vị trí **mũi so với giữa hai vai trên ảnh** — mũi lệch về bên
+nào thì mẫu đang quay về bên đó:
+
+```
+di-bo-ben-ho    −98,1°   mũi −0,062      NGOI-goc-cay     +47,3°  mũi +0,033
+toc-hong        −14,3°   mũi −0,105      selfie-tai-nghe   +6,6°  mũi +0,122
+```
+
+Khớp ở mọi góc lớn. Quy ước: **góc dương = mẫu quay về phía TRÁI của họ**.
+
+Lập luận cũ *"mẫu xoay thử một chiều, sai thì tự đổi"* nghe hợp lý nhưng đẩy việc
+dò tìm sang người mẫu — mà người mẫu không nhìn thấy màn hình, nên họ không biết
+mình vừa xoay đúng hay sai. PO nêu đúng chỗ đó: *"bảo xoay người từ từ nhưng không
+bảo xoay hướng nào?"*
+
+⚠️ Lệch quá 120° thì **đừng nói trái/phải** — bảo "xoay sang phải một chút" cho một
+cú xoay 150° là vô nghĩa. Nói thẳng *"quay hẳn người lại"*.
+
+⚠️ Câu này đi qua `doiBenNeuLatGuong` như câu nhắc dáng, vì cùng suy bên từ một
+khung đo. **Chưa kiểm trên máy thật cho chế độ gương/camera trước.**

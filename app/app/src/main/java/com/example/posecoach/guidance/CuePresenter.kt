@@ -265,14 +265,29 @@ internal fun cueTextFor(status: CriterionStatus): String {
     }
 
     return when (status.criterion) {
-        // ⚠️ KHÔNG nói chiều xoay. Dấu của góc xoay chưa kiểm chứng trên máy thật
-        // (FOOTGUNS 28), mà nói nhầm chiều còn tệ hơn không nói gì.
+        // HƯỚNG MẪU — nay CÓ nói chiều. Dấu đã kiểm trên ảnh mẫu thật
+        // (xem `GuidanceEngine.signedDelta`): góc dương = mẫu quay về phía TRÁI
+        // của họ. `signed` = khung hình trừ ảnh mẫu, nên signed > 0 nghĩa là đang
+        // quay quá sang trái → phải xoay ngược lại về bên phải.
         //
-        // Câu "từ từ đến khi tích sáng" giải luôn chuyện đó: mẫu xoay thử một
-        // chiều, sai thì tự đổi — app không cần biết chiều nào.
-        Criterion.YAW ->
-            if (status.tuChup) "Xoay người từ từ đến khi tích sáng"
-            else "Bảo mẫu xoay người từ từ đến khi tích sáng"
+        // ⚠️ Viết theo GÓC NHÌN CỦA MẪU, vì người cầm máy đọc to câu này lên.
+        // "Sang phải" là phải của mẫu, không phải phải trên màn hình.
+        Criterion.YAW -> {
+            val lech = abs(signed)
+            val cau = when {
+                // Ngược hẳn hướng: nói "xoay sang phải một chút" cho một cú xoay
+                // 150° là vô nghĩa. Nói thẳng là phải quay hẳn người lại.
+                lech > 120.0 -> "quay hẳn người lại, đang ngược hướng ảnh mẫu"
+                signed > 0 -> "xoay người sang phải từ từ đến khi tích sáng"
+                else -> "xoay người sang trái từ từ đến khi tích sáng"
+            }
+            val day = if (status.tuChup) {
+                cau.replaceFirstChar { it.uppercase() }
+            } else {
+                "Bảo mẫu " + cau
+            }
+            doiBenNeuLatGuong(day, status.latGuong)
+        }
 
         // CHỖ ĐỨNG — mục DUY NHẤT nói ra con số, vì đây là việc phải làm bằng CHÂN
         // trong khi mắt còn dán vào màn hình. Mọi mục khác đều thấy kết quả ngay

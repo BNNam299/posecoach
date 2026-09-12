@@ -105,12 +105,34 @@ class CuePresenterTest {
     }
 
     @Test
-    fun `cau ve huong mau khong bao gio noi trai phai`() {
+    fun `cau ve huong mau PHAI noi ro chieu xoay`() {
+        // ⚠️ ĐÃ ĐỔI CHỦ Ý 12/09/2026 — trước đây test này đòi NGƯỢC LẠI.
+        //
+        // Lý do cũ: *"dấu của góc xoay chưa kiểm chứng trên máy thật (FOOTGUNS 28)
+        // — nói nhầm chiều còn tệ hơn không nói gì"*. Lập luận đúng ở thời điểm đó.
+        //
+        // Nay dấu đã đo trên ảnh mẫu thật: đối chiếu góc tính được với vị trí mũi
+        // so với giữa hai vai trên ảnh, khớp ở mọi góc lớn (di-bo-ben-ho −98,1°
+        // với mũi lệch −0,062; NGOI-goc-cay +47,3° với +0,033). Quy ước: góc dương
+        // = mẫu quay về phía TRÁI của họ.
+        //
+        // PO dùng thật và nêu đúng thiếu sót: *"bảo xoay người từ từ nhưng không
+        // bảo xoay hướng nào?"*
         val p = CuePresenter()
-        val text = p.update(listOf(status(Criterion.YAW, dev = 60.0)), 0L, 0.0)!!
-        // Dấu của góc xoay chưa kiểm chứng trên máy thật (FOOTGUNS 28) — nói nhầm
-        // chiều còn tệ hơn không nói gì.
-        assertTrue(!text.contains("trái") && !text.contains("phải"))
+        val phai = p.update(listOf(status(Criterion.YAW, dev = 60.0, signed = 60.0)), 0L, 0.0)!!
+        assertTrue("signed dương thì phải bảo xoay sang PHẢI, nhận: $phai", phai.contains("phải"))
+
+        val p2 = CuePresenter()
+        val trai = p2.update(listOf(status(Criterion.YAW, dev = 60.0, signed = -60.0)), 0L, 0.0)!!
+        assertTrue("signed âm thì phải bảo xoay sang TRÁI, nhận: $trai", trai.contains("trái"))
+    }
+
+    @Test
+    fun `nguoc han huong thi bao quay han nguoi lai, khong noi trai phai`() {
+        // Bảo "xoay sang phải một chút" cho một cú xoay 150° là vô nghĩa.
+        val p = CuePresenter()
+        val text = p.update(listOf(status(Criterion.YAW, dev = 150.0, signed = 150.0)), 0L, 0.0)!!
+        assertTrue("nhận: $text", text.contains("quay hẳn người lại"))
     }
 
     @Test
