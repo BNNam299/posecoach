@@ -1,0 +1,474 @@
+package com.example.posecoach.guidance
+
+import com.example.posecoach.measure.RollSource
+import kotlin.math.abs
+import com.example.posecoach.measure.PitchSource
+import com.example.posecoach.measure.PoseMeasurement
+import com.example.posecoach.pose.PoseFrame
+import com.example.posecoach.measure.ShotScorer
+import com.example.posecoach.template.Criterion
+import com.example.posecoach.template.Stage
+import com.example.posecoach.template.TemplateProfile
+
+/**
+ * Kết quả hướng dẫn của MỘT khung hình.
+ */
+data class GuidanceResult(
+    /** Trạng thái từng mục, đã sắp theo thứ tự ưu tiên. Đây là thứ vẽ ra danh sách tích. */
+    val statuses: List<CriterionStatus>,
+    /** Câu nhắc đang hiện. `null` = không nhắc gì. */
+    val cue: String?,
+    /**
+     * Cảnh báo về CÁCH CẦM MÁY, không phải về chỗ đứng.
+     *
+     * Tách khỏi 6 tiêu chí vì bản chất khác hẳn: đây là những thứ làm **mọi phép
+     * đo phía sau mất nghĩa**, nên phải sửa trước khi nói tới chuyện đứng đâu.
+     */
+    val prepWarning: String?,
+    /** Đủ điều kiện để bấm quay chưa. */
+    val readyToCapture: Boolean,
+    /** Đã giữ ổn định được bao lâu, mili giây. Dùng để vẽ vòng đếm ngược. */
+    val stableForMs: Long,
+    /**
+     * Câu đang hiện là câu để **ĐỌC TO CHO MẪU NGHE**, không phải việc người cầm
+     * máy tự làm. Giao diện dùng cờ này để đổi biểu tượng.
+     */
+    val cueForModel: Boolean = false,
+    /**
+     * ĐỘ GIỐNG ẢNH MẪU NGAY LÚC NÀY, 0..100. `null` = chưa đo được gì.
+     *
+     * ⚠️ Dùng **đúng hàm chấm điểm** mà bước chọn ảnh sau khi quay dùng
+     * (`ShotScorer.score`), không phải một phép tính riêng. Đây là bất biến số 1
+     * của dự án: hướng dẫn realtime và chấm điểm phải đọc từ cùng một chỗ, nếu
+     * không thì app khen "đủ điều kiện" rồi lại chấm ảnh đó điểm thấp.
+     *
+     * Vì sao cần con số này bên cạnh danh sách tích: 8 mục mà mỗi lúc chỉ nhắc
+     * một câu thì người dùng không thấy mình **đang tiến gần hay đang xa ra**.
+     * Đếm số tích không thay được — 5/7 tích có thể vẫn là bức ảnh rất khác mẫu
+     * nếu hai mục còn lại là mục nặng nhất.
+     */
+    val matchPercent: Int? = null,
+    /** Đã đủ giống để bắt đầu chuẩn bị tạo dáng chưa. */
+    val readyToPose: Boolean = false,
+) {
+    val allPassed: Boolean
+        get() = statuses.isNotEmpty() && statuses.all { it.state == GateState.PASSING }
+}
+
+/**
+ * ENGINE HƯỚNG DẪN — Bước 4.
+ *
+ * Nối ba mảnh đã có: tầng đo đạc (đã xong) → [CriterionGate] (khoá/mở) →
+ * [CuePresenter] (chọn câu). Bản thân nó **không đo gì cả**.
+ *
+ * ⚠️ BẤT BIẾN SỐ 1 CỦA DỰ ÁN được giữ ở đây: độ lệch lấy từ
+ * [ShotScorer.deviation] — **đúng hàm mà bước chấm điểm dùng**. Bản iOS sai chỗ
+ * này: `GuidanceEngine` và `BestShotSelector` là hai bộ đo song song, nên app
+ * hướng dẫn một đằng chấm điểm một nẻo mà không có gì báo lỗi.
+ *
+ * ⚠️ Engine đọc [TemplateProfile] để biết **mục nào áp dụng**. Ảnh chân dung cận
+ * không có mục nào về chân, nên không bao giờ nhắc về chân — không phải nhờ lọc ở
+ * tầng chữ, mà vì mục đó không tồn tại trong hồ sơ ngay từ đầu.
+ */
+class GuidanceEngine(private val profile: TemplateProfile) {
+
+    /** Chỉ những mục ảnh mẫu này áp dụng, và chỉ những mục hướng dẫn được realtime. */
+    private val applicable: List<Criterion> =
+        profile.activeFor(Stage.GUIDANCE).sortedBy { it.ordinal }
+
+    private val gates: Map<Criterion, CriterionGate> =
+        applicable.associateWith { CriterionGate(it) }
+
+    private val presenter = CuePresenter()
+
+    /** Đếm số khung liên tiếp đo được. Chưa đủ thì chưa tin số đo. */
+    private var validFrames = 0
+
+    /** Mốc bắt đầu đạt đủ mọi điều kiện. `null` = đang chưa đạt. */
+    private var allGoodSinceMs: Long? = null
+
+    /**
+     * Mốc bắt đầu hiện một câu dành cho MẪU. `null` = đang không nói với mẫu.
+     *
+     * Trong khoảng [MODEL_CUE_FREEZE_MS] kể từ mốc này, các mục về MÁY bị **đóng
+     * băng** — không sinh câu nhắc.
+     *
+     * ⚠️ Vì sao cần: lúc quay sang nói với mẫu, người cầm máy hạ máy xuống hoặc
+     * xoay đi. Mọi mục về máy tuột ngay, app giật họ về "nâng máy lên" đúng lúc
+     * họ đang bận nói. Cơ chế khoá của [CriterionGate] chỉ chịu được rung tay,
+     * không chịu được việc hạ hẳn máy.
+     */
+    private var modelCueSinceMs: Long? = null
+
+    /**
+     * Nạp một khung hình.
+     *
+     * @param live số đo khung hình camera, đã đi qua **cùng hàm đo** với ảnh mẫu
+     * @param nowMs mốc thời gian của khung hình
+     * @param angularSpeedDegPerSec tốc độ quay của máy, từ con quay hồi chuyển
+     * @param prepWarning cảnh báo cầm máy (xoay ngang, đang zoom). `null` = ổn.
+     */
+    fun update(
+        live: PoseMeasurement?,
+        nowMs: Long,
+        angularSpeedDegPerSec: Double,
+        prepWarning: String? = null,
+        /** Mức zoom hiện tại của camera. Cần để ước lượng khoảng cách ra MÉT. */
+        zoomRatio: Float = 1f,
+        /**
+         * Độ vẹo của MÁY theo cảm biến trọng lực, độ. `null` = không có cảm biến.
+         *
+         * ⚠️ CHỈ dùng để chọn nhắc ai (máy hay mẫu) ở mục nghiêng ngang. **Không
+         * bao giờ dùng để chấm** — chấm đo từ ảnh ở cả hai bên, xem
+         * `PoseMeasurement.rollDeg` để biết vì sao trộn hai nguồn là hỏng.
+         */
+        deviceRollDeg: Double? = null,
+        /**
+         * Góc ngẩng của máy theo cảm biến, độ. Chỉ để biết khi nào chính cảm biến
+         * vẹo mất tin cậy — xem [DEVICE_ROLL_TRUST_PITCH_DEG].
+         */
+        devicePitchDeg: Double? = null,
+        /**
+         * Ai cầm máy và hình có lật gương không. Chỉ đổi CÂU CHỮ, không đụng phép đo —
+         * việc lật khung xương về không gian chuẩn đã làm ở tầng trên. Xem [ShootMode].
+         */
+        mode: ShootMode = ShootMode.NGUOI_KHAC,
+        /**
+         * Khung xương thô của ảnh mẫu và của khung hình — chỉ dùng để viết câu
+         * nhắc chỉnh dáng theo từng khớp. `null` thì mục dáng lùi về câu chung.
+         */
+        templateFrame: PoseFrame? = null,
+        liveFrame: PoseFrame? = null,
+        minVis: Float = 0.5f,
+    ): GuidanceResult {
+        // Chưa thấy người: xoá đồng hồ ổn định, nhưng KHÔNG reset các cổng —
+        // mất dấu một lúc rồi bắt lại được thì không nên bắt người ta làm lại từ đầu.
+        if (live == null) {
+            validFrames = 0
+            allGoodSinceMs = null
+            val statuses = applicable.map { c ->
+                CriterionStatus(c, gates.getValue(c).state.takeIf { it == GateState.PASSING }
+                    ?: GateState.UNMEASURED, null, null, bandOf(c))
+            }
+            return GuidanceResult(statuses, null, prepWarning, false, 0)
+        }
+
+        if (validFrames < GuidanceTiming.MIN_VALID_FRAMES) validFrames++
+
+        val dev = ShotScorer.deviation(profile.measurement, live)
+
+        // Điểm giống mẫu NGAY LÚC NÀY — cùng hàm với bước chấm ảnh sau khi quay.
+        val match = ShotScorer.score(profile, live, Stage.GUIDANCE).total
+            .takeIf { it.isFinite() }?.toInt()?.coerceIn(0, 100)
+        val t = profile.measurement
+
+        // Cảm biến còn tin được không, rồi mới hỏi nó lỗi nằm ở đâu.
+        val tiltTrusted = devicePitchDeg != null &&
+            abs(devicePitchDeg) < DEVICE_ROLL_TRUST_PITCH_DEG
+        val rollFromDevice = if (tiltTrusted && deviceRollDeg != null) {
+            abs(deviceRollDeg) >= DEVICE_ROLL_BLAME_DEG
+        } else true
+
+        val statuses = applicable.map { c ->
+            // ⚠️ Mục ngửa/chúc phải lấy ngưỡng THEO ĐÚNG đường đo đã dùng cho khung
+            // này. Đo bằng mặt mà xét bằng ngưỡng của đo bằng chân thì nhiễu lớn
+            // hơn cả ngưỡng — tích sẽ nhấp nháy suốt.
+            val band = bandOf(c, if (c == Criterion.PITCH) dev.pitchSource else null)
+            val deviation = when (c) {
+                Criterion.YAW -> dev.yawDeg
+                Criterion.SCALE -> dev.scaleRatio
+                Criterion.CENTER -> dev.centerX
+                Criterion.ELEVATION -> dev.elevationY
+                Criterion.ROLL -> dev.rollDeg
+                Criterion.PITCH -> dev.pitchCue
+                Criterion.PERSPECTIVE -> dev.perspective
+                Criterion.POSE -> dev.poseDeg
+                else -> null
+            }
+            // Chưa đủ khung liên tiếp thì coi như chưa đo được: ba khung đầu sau
+            // khi bắt được người thường nhiễu rất mạnh.
+            val trusted = if (validFrames >= GuidanceTiming.MIN_VALID_FRAMES) deviation else null
+            val state = if (band == null) GateState.UNMEASURED
+            else gates.getValue(c).update(trusted, band, nowMs)
+
+            CriterionStatus(
+                criterion = c,
+                state = state,
+                deviation = trusted,
+                signedDelta = signedDelta(c, t, live),
+                band = band,
+                moveMeters = moveMetersFor(c, t, live, zoomRatio),
+                // Ảnh chân dung không có mục chỗ đứng, nên mục khung hình phải nói
+                // đi bộ chứ không nói zoom — app không biết người dùng đang zoom
+                // hay đang đứng sai chỗ.
+                walkInsteadOfZoom = c == Criterion.SCALE && !profile.framing.seesLegs,
+                rollFromDevice = rollFromDevice,
+                tuChup = mode.tuChup,
+                latGuong = mode.latGuong,
+                mayNguocChieu = mode.mayNguocChieu,
+                tamTay = mode.tamTay,
+                unmeasuredTooLong = state == GateState.UNMEASURED &&
+                    gates.getValue(c).unmeasuredTooLong(nowMs),
+                poseHint = if (c == Criterion.POSE && templateFrame != null && liveFrame != null) {
+                    PoseDescriber.correction(templateFrame, liveFrame, minVis)
+                } else null,
+            )
+        }
+
+        // --- Chọn các mục đáng nhắc ---
+        val failing = statuses
+            .filter { it.state == GateState.FAILING }
+            // Sàn hành động: lệch ít tới mức không ai sửa nổi thì im.
+            .filter { s ->
+                val d = s.deviation ?: return@filter false
+                val b = s.band ?: return@filter false
+                d - b.accept >= b.actionFloor
+            }
+            .sortedBy { it.criterion.ordinal }
+
+        // ⚠️ THỨ TỰ HƯỚNG DẪN: MÁY TRƯỚC, MẪU SAU.
+        //
+        // Hướng của mẫu được đo TƯƠNG ĐỐI với vị trí máy. Bảo mẫu xoay khi người
+        // cầm máy còn đứng lệch thì lát nữa họ dịch chỗ, hướng vừa chỉnh lại sai —
+        // phải nói lại từ đầu. Mà nói với người mất 5-10 giây và có thể hiểu nhầm,
+        // trong khi dịch máy mất 2 giây và có phản hồi ngay trên màn hình.
+        //
+        // ⚠️ ĐỪNG NHẦM với việc hướng mẫu là tiêu chí SỐ 1 KHI CHẤM ĐIỂM — điều
+        // đó vẫn đúng (nó là hệ số nhân). Quan trọng khi chấm và làm trước khi
+        // hướng dẫn là hai chuyện khác nhau.
+        // ⚠️ MỤC KHÔNG ĐO ĐƯỢC KHÔNG ĐƯỢC COI LÀ "CHƯA SẠCH".
+        //
+        // Trước đây đòi mọi mục về máy phải PASSING. Mà mục không đo được thì KHÔNG
+        // BAO GIỜ thành PASSING, nên nó khoá vĩnh viễn mọi câu nhắc dành cho mẫu —
+        // và bản thân nó cũng không sinh câu nào vì nó không FAILING.
+        //
+        // Kết quả trên máy thật: app im lặng hoàn toàn, viên chữ hiện "Giữ nguyên
+        // như vậy…" mãi trong khi khung hình sai hẳn so với ảnh mẫu. Đúng ca đã gặp
+        // ngày 04/09/2026 — ảnh mẫu toàn thân, người đứng sát máy nên không thấy
+        // chân, ba mục về khung hình cùng tắt một lúc.
+        //
+        // Quy tắc số 4: không đo được KHÁC với sai. Nó không chặn gì cả.
+        val cameraClean = statuses
+            .filter { !it.criterion.forModel }
+            // ⚠️ CHỈ `FAILING` MỚI CHẶN. Vàng (GREY) là **chấp nhận được** — nó là
+            // vùng đệm chống nhấp nháy, không phải trạng thái sai. Coi vàng là chưa
+            // sạch thì gần như không bao giờ tới lượt nhắc dáng: cầm máy trên tay
+            // thì lúc nào cũng có một mục đang ở vùng đệm.
+            //
+            // Người dùng báo đúng triệu chứng này (07/09/2026): *"cũng không có
+            // phần nhắc nhở về dáng của mẫu"*.
+            .none { it.state == GateState.FAILING }
+
+        // NGOẠI LỆ: mẫu sai hướng RẤT NHIỀU (quay lưng trong khi ảnh mẫu quay mặt)
+        // thì nói ngay. Việc đó mất thời gian và gần như không đổi theo mấy bước
+        // chân của người cầm máy, nên chờ là phí.
+        val grossYaw = statuses.firstOrNull {
+            it.criterion == Criterion.YAW && (it.deviation ?: 0.0) > GROSS_YAW_DEG
+        }
+
+        // Mục ÁP DỤNG mà khung hình không đo được, kéo dài đủ lâu. Ưu tiên THẤP
+        // NHẤT: có mục nào đang lệch thật thì sửa cái đó trước, vì lùi ra cho thấy
+        // đầu gối trong khi còn đứng sai chỗ là bắt người ta làm hai lần.
+        val stuckUnmeasured = statuses.filter { it.unmeasuredTooLong }
+
+        var cueCandidates = when {
+            grossYaw != null && grossYaw.state == GateState.FAILING -> listOf(grossYaw)
+            cameraClean -> failing
+            else -> failing.filter { !it.criterion.forModel }
+        }.ifEmpty { stuckUnmeasured }
+
+        // Đang nói với mẫu: đóng băng các mục về máy vài giây.
+        // ⚠️ Tự chụp thì KHÔNG đóng băng. Cơ chế này sinh ra vì người cầm máy hạ
+        // máy xuống để nói với mẫu, làm mọi mục về máy tuột. Tự chụp thì không có
+        // ai để nói — máy vẫn đang giơ nguyên chỗ cũ.
+        val talking = !mode.tuChup &&
+            modelCueSinceMs?.let { nowMs - it < MODEL_CUE_FREEZE_MS } == true
+        if (talking) {
+            cueCandidates = cueCandidates.filter { it.criterion.forModel }
+                .ifEmpty { cueCandidates }
+        }
+
+        // ⚠️ ĐỦ GIỐNG RỒI THÌ NGỪNG BẮT BẺ.
+        //
+        // Cầm máy trên tay thì luôn có một hai mục dao động quanh ngưỡng. Nhắc sửa
+        // tiếp lúc này chỉ làm người dùng loay hoay và bỏ lỡ khoảnh khắc — trong khi
+        // bức ảnh đã đủ giống ảnh mẫu rồi.
+        val readyToPose = match != null && match >= READY_PERCENT
+
+        // Cầm máy sai thì mọi phép đo phía sau đều vô nghĩa — nói đúng một việc đó.
+        // ⚠️ ĐỦ GIỐNG RỒI THÌ CHUYỂN SANG NHẮC DÁNG, KHÔNG PHẢI IM LẶNG.
+        //
+        // Đây đúng là lúc việc còn lại chỉ là tạo dáng: chỗ đứng và góc máy đã xong.
+        // Im hẳn lúc này bỏ mất phần có giá trị nhất của sản phẩm — bản iOS xếp dáng
+        // là mục cuối cùng chính vì nó phải làm SAU khi máy đã đúng chỗ.
+        val poseCandidates = cueCandidates.filter { it.criterion.forModel }
+        val cue = when {
+            prepWarning != null -> null
+            readyToPose -> presenter.update(poseCandidates, nowMs, angularSpeedDegPerSec)
+            else -> presenter.update(cueCandidates, nowMs, angularSpeedDegPerSec)
+        }
+
+        // ⚠️ Không hỏi `criterion.forModel` — đó là thuộc tính TĨNH của loại mục.
+        // Mục NGHIÊNG NGANG là mục nhắc mẫu hay nhắc máy **tuỳ khung hình**: cảm
+        // biến báo máy đang thẳng thì câu của nó là "bảo mẫu đứng thẳng người lại",
+        // tức câu phải ĐỌC TO cho mẫu nghe. Bỏ sót chỗ này thì câu đó vừa mất biểu
+        // tượng loa, vừa không kích hoạt việc đóng băng các mục về máy trong lúc nói.
+        val cueForModel = cue != null && cueCandidates.firstOrNull()?.isModelCue == true
+        modelCueSinceMs = when {
+            cueForModel && modelCueSinceMs == null -> nowMs
+            !cueForModel && !talking -> null
+            else -> modelCueSinceMs
+        }
+
+        // --- Cổng chụp ---
+        val steady = angularSpeedDegPerSec <= GuidanceTiming.MAX_ANGULAR_SPEED_DEG_PER_SEC
+        val allPassing = statuses.isNotEmpty() && statuses.all { it.state == GateState.PASSING }
+        val good = prepWarning == null && allPassing && steady
+
+        if (good) {
+            if (allGoodSinceMs == null) allGoodSinceMs = nowMs
+        } else {
+            allGoodSinceMs = null
+        }
+        val stableFor = allGoodSinceMs?.let { nowMs - it } ?: 0L
+
+        return GuidanceResult(
+            statuses = statuses,
+            cue = cue,
+            matchPercent = match,
+            readyToPose = readyToPose,
+            prepWarning = prepWarning,
+            readyToCapture = good && stableFor >= GuidanceTiming.DWELL_MS,
+            stableForMs = stableFor,
+            cueForModel = cueForModel,
+        )
+    }
+
+    /**
+     * QUÃNG ĐƯỜNG CẦN ĐI, mét — chỉ cho hai mục liên quan tới chỗ đứng.
+     *
+     * ## Đích đến
+     * ```
+     *     đích = MAX( mốc tối thiểu của lớp ảnh , khoảng cách để khớp khung ở 1x )
+     * ```
+     *
+     * Vế thứ hai một mình sẽ đẩy người dùng tới rất gần — ảnh toàn thân khớp khung
+     * ở 1x chỉ cần đứng ~1,1m, và ảnh chụp ở đó gần như chắc chắn xấu. Vế thứ nhất
+     * ép đúng công thức của dân chụp ảnh: **lùi ra một khoảng rồi zoom lên**.
+     */
+    private fun moveMetersFor(
+        c: Criterion,
+        t: PoseMeasurement,
+        live: PoseMeasurement,
+        zoomRatio: Float,
+    ): Double? {
+        if (c != Criterion.PERSPECTIVE && c != Criterion.SCALE) return null
+        val now = DistanceEstimator.estimate(live.scale, live.anchorHeightMeters, zoomRatio)
+            ?: return null
+        // Khoảng cách đứng nếu chụp đúng khung của ảnh mẫu mà KHÔNG zoom.
+        val atOneX = DistanceEstimator.estimate(t.scale, live.anchorHeightMeters, 1f)
+        val target = maxOf(DistanceEstimator.minStandoffMeters(profile.framing), atOneX ?: 0.0)
+        return kotlin.math.abs(target - now)
+    }
+
+    /** Mở cho test đọc ngưỡng, không phải để nơi khác gọi tuỳ tiện. */
+    internal companion object {
+        /**
+         * Lệch hướng quá mức này thì nói NGAY, không chờ chỉnh máy xong.
+         *
+         * 90° là ranh giới giữa "xoay người một chút" và "đang quay sai hẳn phía".
+         * Việc thứ hai mất thời gian nên chờ là phí.
+         */
+        const val GROSS_YAW_DEG = 90.0
+
+        /** Giữ im các mục về máy ngần này sau khi bắt đầu nói với mẫu. */
+        const val MODEL_CUE_FREEZE_MS = 4_000L
+
+        /**
+         * Máy vẹo từ mức này trở lên thì coi LỖI Ở MÁY, dưới mức đó thì lỗi ở mẫu.
+         *
+         * Đặt thấp hơn ngưỡng đạt của mục (5°): người cầm máy hiếm khi giữ đúng 0°,
+         * nên vẹo 1-2° là bình thường, không đáng đổ lỗi cho máy.
+         */
+        /**
+         * Đủ giống tới mức này thì NGỪNG bắt bẻ, chuyển sang bảo người ta chuẩn bị.
+         *
+         * ⚠️ Vì sao không đợi đủ 8/8 tích: cầm máy trên tay thì luôn có một hai mục
+         * dao động quanh ngưỡng. Đòi tất cả cùng xanh một lúc là đòi một thứ gần
+         * như không xảy ra, và người dùng bị nhắc sửa vặt mãi không dứt.
+         *
+         * 85 là mức PO chốt sau buổi test 06/09/2026.
+         */
+        const val READY_PERCENT = 85
+
+        const val DEVICE_ROLL_BLAME_DEG = 3.0
+
+        /**
+         * Máy chúc/ngửa quá mức này thì NGỪNG tin cảm biến vẹo.
+         *
+         * Góc vẹo tính bằng `atan2(-gx, gy)`. Khi máy nằm gần song song mặt đất thì
+         * cả `gx` lẫn `gy` đều tiến về 0, và `atan2` của hai số gần 0 là **nhiễu
+         * thuần tuý** — góc nhảy loạn. Đúng vùng này lại là kiểu chụp thẳng từ trên
+         * xuống hoặc thẳng từ dưới lên, tức các ảnh phá cách.
+         *
+         * Mất tin cậy thì quay về mặc định "nhắc máy" — đúng luật máy trước mẫu sau.
+         */
+        const val DEVICE_ROLL_TRUST_PITCH_DEG = 60.0
+    }
+
+    private fun bandOf(c: Criterion, pitchSource: PitchSource? = null): Band? =
+        GuidanceConfig.bandFor(c, profile.framing, profile.measurement.scale, pitchSource)
+
+    /**
+     * Hiệu CÓ DẤU giữa khung hình và ảnh mẫu — chỉ để chọn chữ ("lùi lại" hay
+     * "tiến lên"), không dùng để chấm điểm.
+     *
+     * Đây là phép TRỪ trên hai số đã đo xong, không phải một phép đo thứ hai — nên
+     * không phá bất biến "cùng một hàm".
+     */
+    private fun signedDelta(c: Criterion, t: PoseMeasurement, live: PoseMeasurement): Double? =
+        when (c) {
+            // Cố ý bỏ trống: dấu của góc xoay chưa kiểm chứng trên máy thật, và
+            // câu nhắc về hướng mẫu không nói chiều (FOOTGUNS 28).
+            Criterion.YAW -> null
+            Criterion.SCALE -> {
+                val a = t.scale; val b = live.scale
+                if (a == null || b == null || a <= 1e-6) null else (b - a) / a
+            }
+            // Cùng luật "chỉ so khi cùng đường đo".
+            Criterion.ROLL -> RollSource.entries.firstNotNullOfOrNull { src ->
+                val a = t.rollDeg[src] ?: return@firstNotNullOfOrNull null
+                val b = live.rollDeg[src] ?: return@firstNotNullOfOrNull null
+                b - a
+            }
+            Criterion.CENTER -> diff(t.centerX, live.centerX)
+            Criterion.ELEVATION -> diff(t.elevationY, live.elevationY)
+            // Cùng luật "chỉ so khi cùng đường đo" như mục zoom bên dưới.
+            Criterion.PITCH -> PitchSource.entries.firstNotNullOfOrNull { src ->
+                val a = t.pitchCue[src] ?: return@firstNotNullOfOrNull null
+                val b = live.pitchCue[src] ?: return@firstNotNullOfOrNull null
+                b - a
+            }
+            // Chọn đúng cặp đoạn mà cả hai bên cùng có — giống hệt phép so lệch,
+            // nếu không thì dấu của hiệu sẽ vô nghĩa.
+            Criterion.PERSPECTIVE -> com.example.posecoach.measure.PerspectiveSource.entries
+                .firstNotNullOfOrNull { src ->
+                    val a = t.perspectiveIndex[src] ?: return@firstNotNullOfOrNull null
+                    val b = live.perspectiveIndex[src] ?: return@firstNotNullOfOrNull null
+                    b - a
+                }
+            Criterion.POSE -> null
+            else -> null
+        }
+
+    private fun diff(t: Double?, c: Double?): Double? =
+        if (t == null || c == null) null else c - t
+
+    /** Về trạng thái ban đầu. Gọi khi vào lại màn hình hoặc đổi ảnh mẫu. */
+    fun reset() {
+        gates.values.forEach { it.reset() }
+        presenter.reset()
+        validFrames = 0
+        allGoodSinceMs = null
+    }
+}

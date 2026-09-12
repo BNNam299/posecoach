@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Camera: bắt buộc, app không có ý nghĩa gì nếu thiếu -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="true" />
+
+    <!--
+      Con quay hồi chuyển: BẮT BUỘC. Xem FOOTGUNS.md mục 2.
+      Thiếu nó thì hỏng 4 thứ cùng lúc: cổng chống chụp lúc tay đang rung, cơ chế
+      đóng băng hướng dẫn khi lắc mạnh, tiêu chí loại khung hình rung khi chọn ảnh,
+      và vector trọng lực (mục 4 - máy ngửa/chúc, ngưỡng chỉ 5 độ) tụt xuống chỉ
+      suy từ gia tốc kế nên nhiễu và trễ.
+      Nhiều máy Android giá rẻ bị cắt cảm biến này để hạ giá.
+    -->
+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="true" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Posecoach">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Posecoach"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="fullUser"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|density">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

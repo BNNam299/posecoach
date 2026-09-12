@@ -1,0 +1,43 @@
+# ==========================================================
+# Ket qua build - sinh lai duoc bang lenh, khong ghi so
+# ==========================================================
+app/build/
+app/app/build/
+app/.gradle/
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Duong dan SDK rieng cua tung may - moi may mot khac
+app/local.properties
+local.properties
+
+# File cai dat - da co kho rieng posecoach-apk
+*.apk
+*.aab
+
+# ==========================================================
+# Anh va video thu nghiem
+# Giu NGUYEN tren o D, chi khong day len GitHub.
+# Xoa khoi day KHONG lam mat file tren may.
+# ==========================================================
+test-media/
+
+# ==========================================================
+# He dieu hanh va IDE
+# ==========================================================
+.DS_Store
+Thumbs.db
+*.iml
+.idea/
+*.log
+
+# ==========================================================
+# Ban iOS cu - la MOT KHO GIT RIENG, khong long vao day duoc.
+# Ma nguon Swift: github.com/SonHoang1002/PoseGuideDemo1 (nhanh bnnam)
+# Rieng legacy-ios/Documents/ thi KHONG nam trong kho do,
+# nen van ghi so o day (xem dong phu dinh ben duoi).
+# ==========================================================
+legacy-ios/
