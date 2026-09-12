@@ -13,17 +13,8 @@ import java.io.File
  * file video. Mọi thứ phía sau (đo, chấm điểm, chọn 5 ảnh) dùng chung code.
  */
 data class CaptureUiState(
-    /**
-     * Tỉ lệ ngang/dọc của KHUNG ĐẦU RA. `null` = chưa phân tích xong ảnh mẫu.
-     *
-     * Bằng `khungDauRa.tiLe`. Giữ riêng một trường vì lớp che và phép cắt ảnh đọc
-     * thẳng con số, không cần biết tới enum.
-     */
+    /** Tỉ lệ ngang/dọc của ảnh mẫu. `null` = chưa phân tích xong. */
     val templateAspect: Double? = null,
-
-    /** Khung ảnh đầu ra người dùng chọn. Mặc định = khung chuẩn gần ảnh mẫu nhất. */
-    val khungDauRa: com.example.posecoach.template.KhungDauRa =
-        com.example.posecoach.template.KhungDauRa.DOC_4_5,
 
     /** Độ giống ảnh mẫu ngay lúc này, 0..100. `null` = chưa đo được. */
     val matchPercent: Int? = null,

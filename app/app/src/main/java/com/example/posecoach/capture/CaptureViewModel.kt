@@ -10,7 +10,6 @@ import com.example.posecoach.guidance.ShootMode
 import com.example.posecoach.measure.Measurer
 import com.example.posecoach.pose.FramingClass
 import com.example.posecoach.template.Criterion
-import com.example.posecoach.template.KhungDauRa
 import com.example.posecoach.template.TemplateProfile
 import com.example.posecoach.pose.PoseDetector
 import com.example.posecoach.pose.PoseFrame
@@ -42,17 +41,11 @@ class CaptureViewModel : ViewModel() {
         private set
 
     /**
-     * TỈ LỆ NGANG/DỌC CỦA KHUNG ĐẦU RA. `null` = chưa phân tích xong ảnh mẫu.
+     * TỈ LỆ NGANG/DỌC CỦA ẢNH MẪU. `null` = chưa phân tích xong.
      *
      * Mọi khung hình camera phải được cắt về đúng tỉ lệ này TRƯỚC KHI ĐO — toạ độ
      * khớp là tỉ lệ so với khung chứa nó, nên hai khung khác tỉ lệ thì không so
      * được. Xem `PoseFrame.croppedToAspect`.
-     *
-     * ⚠️ ĐÂY LÀ KHUNG NGƯỜI DÙNG CHỌN, KHÔNG PHẢI TỈ LỆ CỦA ẢNH MẪU (12/09/2026).
-     * Ảnh mẫu gần như luôn đã bị cắt cúp nên tỉ lệ của nó là tàn dư hậu kỳ — xem
-     * `KhungDauRa`. Đích bố cục cũng đã chuyển sang do `BoCuc` sinh ra, nên việc
-     * khung camera khác tỉ lệ ảnh mẫu không còn phá phép so nữa (FOOTGUNS 63 chỉ
-     * còn đúng ở vế "camera và phép đo phải dùng CHUNG một tỉ lệ").
      */
     var templateAspect: Double? = null
         private set
@@ -169,18 +162,6 @@ class CaptureViewModel : ViewModel() {
         )
     }
 
-    /**
-     * Người dùng đổi khung ảnh đầu ra.
-     *
-     * Đổi được giữa chừng mà không mất tích đã đạt: 6/7 mục đo bằng góc hoặc tỉ lệ
-     * BÊN TRONG cơ thể nên không liên quan gì tới hình dạng cái khung. Chỉ mục bố
-     * cục phải tính lại.
-     */
-    fun onKhungDauRaChanged(k: KhungDauRa) {
-        templateAspect = k.tiLe
-        _state.update { it.copy(khungDauRa = k, templateAspect = k.tiLe) }
-    }
-
     fun onZoomChanged(ratio: Float) {
         zoomRatio = ratio
         _state.update { it.copy(zoomRatio = ratio) }
@@ -232,23 +213,18 @@ class CaptureViewModel : ViewModel() {
         // Anh mau doc hay ngang - quyet dinh viec nhac nguoi dung xoay may.
         // Lay tu chinh anh thu nho, khong can truyen them gi tu ben ngoai.
         val portrait = thumb?.let { it.height >= it.width }
-        // Tỉ lệ của chính ảnh mẫu — CHỈ dùng để chọn khung mặc định, không dùng
-        // để đo. Xem `KhungDauRa.ganNhat`.
-        val tiLeAnhMau = thumb?.let { if (it.height > 0) it.width.toDouble() / it.height else null }
-        val khung = KhungDauRa.ganNhat(tiLeAnhMau)
-        templateAspect = khung.tiLe
+        templateAspect = thumb?.let { if (it.height > 0) it.width.toDouble() / it.height else null }
 
         _state.update {
             it.copy(
                 templateName = name, templateThumb = thumb, templateFraming = framing,
                 criteriaSummary = profile.describe(),
                 templatePortrait = portrait,
-                khungDauRa = khung,
                 // Anh khong thay chan thi ghim zoom lai, xem KieuChanDung.
                 ghimZoom = if (KieuChanDung.canHoi(framing)) {
                     it.kieuChanDung.zoomGhim
                 } else null,
-                templateAspect = khung.tiLe,
+                templateAspect = templateAspect,
                 analyzingTemplate = false, templateError = null,
             )
         }

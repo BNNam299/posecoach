@@ -50,12 +50,6 @@ data class CriterionStatus(
      */
     val rollFromDevice: Boolean = true,
     /**
-     * Mục bố cục: trục DỌC đang lệch nhiều hơn trục ngang.
-     *
-     * Một mục gộp hai trục, nên câu nhắc phải biết nói về trục nào.
-     */
-    val boCucTrucDoc: Boolean = false,
-    /**
      * Mục này ÁP DỤNG cho ảnh mẫu nhưng khung hình hiện tại **không đo được**, và
      * đã như vậy đủ lâu để cần giải thích.
      *
@@ -354,17 +348,7 @@ internal fun cueTextFor(status: CriterionStatus): String {
         //
         // Nói cách khác: **trái là trái, phải là phải, đúng như bạn nhìn trên màn
         // hình** — ở cả ba chế độ.
-        // MỤC BỐ CỤC — gộp cả hai trục, nhắc về trục đang lệch nhiều hơn.
-        //
-        // ⚠️ Đích KHÔNG phải vị trí chủ thể trong ảnh mẫu, mà là con số do `BoCuc`
-        // sinh ra. Ảnh mẫu gần như luôn đã bị cắt cúp nên vị trí trong đó là tàn
-        // dư của hậu kỳ — xem `BoCuc` để biết số đo.
         Criterion.CENTER -> when {
-            status.boCucTrucDoc -> when {
-                // signed > 0 = mẫu đang nằm THẤP hơn đích trên khung.
-                signed > 0 -> "Chỉnh máy cho mẫu lên cao hơn trong khung"
-                else -> "Chỉnh máy cho mẫu xuống thấp hơn trong khung"
-            }
             signed > 0 -> "Đưa máy sang phải từ từ đến khi tích sáng"
             else -> "Đưa máy sang trái từ từ đến khi tích sáng"
         }

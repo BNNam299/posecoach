@@ -49,7 +49,6 @@ import com.example.posecoach.camera.CaptureController
 import com.example.posecoach.face.FaceAnalyzer
 import com.example.posecoach.guidance.GateState
 import com.example.posecoach.guidance.KieuChanDung
-import com.example.posecoach.template.KhungDauRa
 import com.example.posecoach.sensors.DeviceTilt
 import com.example.posecoach.ui.CriteriaChecklist
 import com.example.posecoach.ui.CriteriaProgress
@@ -587,8 +586,6 @@ fun CaptureScreen(
                         }
                         Spacer(Modifier.height(8.dp))
                         AutoSwitch(state.autoMode) { vm.onAutoModeChanged(it) }
-                        Spacer(Modifier.height(8.dp))
-                        KhungDauRaSwitch(state.khungDauRa) { vm.onKhungDauRaChanged(it) }
                         Spacer(Modifier.height(8.dp))
                         ModeSwitch(state.burstMode) { burst ->
                             controller?.setMode(
@@ -1165,33 +1162,6 @@ private fun KieuChanDungSwitch(kieu: KieuChanDung, onChange: (KieuChanDung) -> U
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 24.dp),
         )
-    }
-}
-
-/**
- * CHỌN KHUNG ẢNH ĐẦU RA.
- *
- * ⚠️ Trước đây khung lấy theo tỉ lệ ảnh mẫu. Bỏ ngày 12/09/2026: đo trên 13 ảnh
- * mẫu cài sẵn thì 0/13 còn EXIF máy ảnh và ít nhất 8/13 có tỉ lệ chỉ có thể sinh
- * ra từ việc cắt cúp (0,635 · 0,672 · 0,778 · 0,808 · 0,645 · 1:1 · 4:5). Lấy
- * theo ảnh mẫu tức là bắt người dùng chụp ra ảnh tỉ lệ 0,635 — không đăng được ở
- * đâu và phí một phần cảm biến.
- *
- * Đổi khung giữa chừng KHÔNG làm mất tích đã đạt: 6/7 mục đo bằng góc hoặc tỉ lệ
- * bên trong cơ thể nên không liên quan tới hình dạng khung.
- */
-@Composable
-private fun KhungDauRaSwitch(khung: KhungDauRa, onChange: (KhungDauRa) -> Unit) {
-    Row(
-        Modifier
-            .clip(RoundedCornerShape(Ds.rPill))
-            .background(Ds.overlayScrim)
-            .padding(3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        KhungDauRa.entries.forEach { k ->
-            ModeChip(k.nhan, selected = khung == k) { onChange(k) }
-        }
     }
 }
 

@@ -118,14 +118,6 @@ data class PoseMeasurement(
     val elevationDeg: Double?,
 
     /**
-     * Đường mắt nằm ở đâu trên khung, 0 = sát mép trên.
-     *
-     * Đây là **bố cục**, không phải góc máy — xem [elevationDeg] để biết vì sao
-     * hai thứ đó từng bị gộp làm một và hậu quả ra sao.
-     */
-    val eyeY: Double?,
-
-    /**
      * MỤC 1 — HƯỚNG MẪU đo bằng THÂN. Góc xoay quanh trục đứng, ĐỘ.
      * 0 = quay thẳng vào máy, ±180 = quay lưng.
      */
@@ -244,7 +236,7 @@ object Measurer {
     ): PoseMeasurement {
         if (frame.isEmpty) {
             return PoseMeasurement(
-                framing, null, null, null, null, null, null, null, null,
+                framing, null, null, null, null, null, null, null,
                 emptyMap(), emptyMap(), emptyMap(), emptyMap(),
             )
         }
@@ -253,7 +245,6 @@ object Measurer {
             scale = measureScale(frame, framing.scaleAnchor, minVisibility),
             centerX = measureCenterX(frame, framing.centerAnchor, minVisibility),
             elevationDeg = measureElevationDeg(frame, minVisibility),
-            eyeY = measureEyeY(frame, minVisibility),
             yawDeg = frame.bodyYawDeg(minVisibility),
             faceYawDeg = face?.yawDeg,
             eyesOpen = face?.eyesOpen,
@@ -432,21 +423,6 @@ object Measurer {
         if (kotlin.math.hypot(dy, dz) < 1e-3) return null
         // y của MediaPipe hướng XUỐNG, nên -dy là "lên trên".
         return Math.toDegrees(kotlin.math.atan2(dz, -dy))
-    }
-
-    /**
-     * Đường mắt trên khung hình. Không thấy mắt thì lấy mũi.
-     *
-     * Dùng cho mục **bố cục** — so với đích do `BoCuc` sinh ra, KHÔNG so với ảnh
-     * mẫu. Vị trí chủ thể trong ảnh mẫu là tàn dư của một cú cắt cúp.
-     */
-    private fun measureEyeY(f: PoseFrame, v: Float): Double? {
-        val le = f.at(Lm.LEFT_EYE, v)
-        val re = f.at(Lm.RIGHT_EYE, v)
-        return when {
-            le != null && re != null -> (le.y + re.y) / 2.0
-            else -> (le ?: re)?.y ?: f.at(Lm.NOSE, v)?.y
-        }
     }
 
     private fun midP3(a: P3?, b: P3?): P3? = when {

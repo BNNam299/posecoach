@@ -28,7 +28,6 @@ class ShotScorerTest {
         scale: Double? = 0.60,
         centerX: Double? = 0.50,
         elevationDeg: Double? = 0.0,
-        eyeY: Double? = 0.20,
         yawDeg: Double? = 0.0,
         faceYawDeg: Double? = null,
         eyesOpen: Double? = null,
@@ -41,7 +40,6 @@ class ShotScorerTest {
         scale = scale,
         centerX = centerX,
         elevationDeg = elevationDeg,
-        eyeY = eyeY,
         yawDeg = yawDeg,
         faceYawDeg = faceYawDeg,
         eyesOpen = eyesOpen,
@@ -135,7 +133,7 @@ class ShotScorerTest {
         val duMuc = scoreOf(tpl, m())
         val thieuMuc = scoreOf(
             tpl,
-            m(centerX = null, eyeY = null, elevationDeg = null, yawDeg = null, pitchCue = emptyMap(), pose = emptyMap()),
+            m(centerX = null, elevationDeg = null, yawDeg = null, pitchCue = emptyMap(), pose = emptyMap()),
         )
         assertTrue(duMuc.trustworthy)
         assertFalse("Chỉ đo được 1 mục thì không đủ căn cứ tin", thieuMuc.trustworthy)
@@ -144,7 +142,7 @@ class ShotScorerTest {
     @Test
     fun `khong do duoc gi ca thi diem bang khong`() {
         val trong = m(
-            scale = null, centerX = null, elevationDeg = null, eyeY = null,
+            scale = null, centerX = null, elevationDeg = null,
             yawDeg = null, pitchCue = emptyMap(), pose = emptyMap(),
         )
         val s = scoreOf(m(), trong)
