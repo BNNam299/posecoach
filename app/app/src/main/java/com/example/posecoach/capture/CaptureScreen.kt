@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -960,89 +961,163 @@ private fun ZoomBar(
     range: ClosedFloatingPointRange<Float>,
     onPick: (Float) -> Unit,
 ) {
-    // Ba mức CỐ ĐỊNH, luôn hiện — đúng cách camera iOS làm. Không dựng danh sách
-    // theo phần cứng nữa: mức zoom nhảy theo máy thì người dùng đổi điện thoại là
-    // giao diện đổi theo, mất thói quen.
+    // Ba mức CỐ ĐỊNH, luôn hiện khi không kéo. Không dựng danh sách theo phần
+    // cứng: mức zoom nhảy theo máy thì người dùng đổi điện thoại là giao diện đổi
+    // theo, mất thói quen.
     val mucs = listOf(0.5f, 1f, 2f)
-
-    // Mức đang đứng, nếu đang đúng một mức tròn.
     val dangO = mucs.firstOrNull { abs(current - it) < it * 0.05f }
 
-    // 260dp kéo = gấp đôi mức zoom.
-    val pxMoiLan = with(LocalDensity.current) { 260.dp.toPx() }
+    // Chạm rồi kéo thì dãy chip GIÃN RA thành thước chi tiết ngay tại chỗ đó, thả
+    // tay một lúc thì thu lại. Đây là hình thái người dùng đã quen trên máy họ.
+    var dangKeo by remember { mutableStateOf(false) }
+    LaunchedEffect(dangKeo, current) {
+        if (dangKeo) { delay(1_600); dangKeo = false }
+    }
+
+    val dpMoiLan = 260.dp
+    val pxMoiLan = with(LocalDensity.current) { dpMoiLan.toPx() }
     val cur by rememberUpdatedState(current)
     var zKeo by remember { mutableFloatStateOf(current) }
 
     val batKeo = Modifier.pointerInput(range) {
-        detectHorizontalDragGestures(onDragStart = { zKeo = cur }) { _, dx ->
-            // ⚠️ KÉO SANG TRÁI = ZOOM VÀO. Dấu trừ ở đây là cố ý.
-            //
-            // Giống vòng xoay zoom của camera iOS: ngón tay đẩy vòng số sang trái
-            // thì các số lớn hơn trôi vào giữa. Làm ngược lại thì đúng về mặt
-            // "kéo sang phải là tăng" của thanh trượt, nhưng SAI so với thói quen
-            // người dùng đã có trên máy của họ.
-            zKeo = (zKeo * 2f.pow(-dx / pxMoiLan))
-                .coerceIn(range.start, range.endInclusive)
+        detectHorizontalDragGestures(onDragStart = { dangKeo = true; zKeo = cur }) { _, dx ->
+            dangKeo = true
+            // ⚠️ KÉO SANG TRÁI = ZOOM VÀO. Dấu trừ là cố ý — giống vòng xoay zoom
+            // của camera iOS: ngón tay đẩy vòng số sang trái thì số lớn trôi vào
+            // giữa. Làm ngược lại thì đúng kiểu thanh trượt nhưng sai thói quen.
+            zKeo = (zKeo * 2f.pow(-dx / pxMoiLan)).coerceIn(range.start, range.endInclusive)
             onPick(zKeo)
         }
     }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = batKeo) {
-        // Mức lẻ (1,4x) thì hiện số thật phía trên — không chip nào sáng được.
-        if (dangO == null) {
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Ds.success)
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-            ) {
-                Text(
-                    "%.1fx".format(current),
-                    color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(50))
+                .background(Ds.success)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
         ) {
-            mucs.forEach { z ->
-                val lamDuoc = z in range
-                val on = dangO == z
-                Box(
-                    Modifier
-                        .size(if (on) 38.dp else 32.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when {
-                                on -> Ds.success
-                                // Máy không có ống góc rộng thì 0,5x vẫn hiện
-                                // nhưng mờ đi — bấm vào không có tác dụng mà
-                                // không giải thích gì mới là thứ gây ức chế.
-                                !lamDuoc -> Color(0x33000000)
-                                else -> Color(0x66000000)
-                            }
+            Text(
+                "%.1fx".format(current),
+                color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+
+        if (dangKeo) {
+            ThuocZoom(current, range, dpMoiLan, batKeo)
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = batKeo,
+            ) {
+                mucs.forEach { z ->
+                    val lamDuoc = z in range
+                    val on = dangO == z
+                    Box(
+                        Modifier
+                            .size(if (on) 38.dp else 32.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when {
+                                    on -> Ds.success
+                                    // Máy không có ống góc rộng thì 0,5x vẫn hiện
+                                    // nhưng mờ — bấm vào không tác dụng mà không
+                                    // giải thích gì mới là thứ gây ức chế.
+                                    !lamDuoc -> Color(0x33000000)
+                                    else -> Color(0x66000000)
+                                }
+                            )
+                            .then(if (lamDuoc) Modifier.clickable { onPick(z) } else Modifier),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = when {
+                                on -> if (z < 1f) "%.1fx".format(z) else "%.0fx".format(z)
+                                z < 1f -> "%.1f".format(z).removePrefix("0")
+                                else -> "%.0f".format(z)
+                            },
+                            color = if (lamDuoc) Color.White else Color(0x66FFFFFF),
+                            fontSize = if (on) 13.sp else 12.sp,
+                            fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
                         )
-                        .then(if (lamDuoc) Modifier.clickable { onPick(z) } else Modifier),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = when {
-                            on -> if (z < 1f) "%.1fx".format(z) else "%.0fx".format(z)
-                            z < 1f -> "%.1f".format(z).removePrefix("0")
-                            else -> "%.0f".format(z)
-                        },
-                        color = if (lamDuoc) Color.White else Color(0x66FFFFFF),
-                        fontSize = if (on) 13.sp else 12.sp,
-                        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                    )
+                    }
                 }
             }
         }
     }
 }
+
+/**
+ * THƯỚC ZOOM CHI TIẾT — giãn ra đúng chỗ dãy chip khi người dùng kéo.
+ *
+ * Chia theo thang **loga** nên quãng 1x→2x dài đúng bằng 2x→4x. Kéo tuyến tính
+ * thì nửa đầu thước phí hoài còn nửa sau nhảy cóc.
+ *
+ * Số ghi từng nấc 0,1x. Nhãn nào chen quá sát nhãn trước thì bỏ, nên thước đọc
+ * được ở mọi mức zoom mà không phải tính trước cỡ chữ.
+ */
+@Composable
+private fun ThuocZoom(
+    current: Float,
+    range: ClosedFloatingPointRange<Float>,
+    dpMoiLan: Dp,
+    batKeo: Modifier,
+) {
+    BoxWithConstraints(
+        Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .then(batKeo),
+    ) {
+        val nuaRong = maxWidth / 2
+        fun xCua(z: Float): Dp = nuaRong + dpMoiLan * (ln(z / current) / ln(2f))
+
+        val nac = buildList {
+            var n = (range.start * 10).toInt().coerceAtLeast(1)
+            val het = (range.endInclusive * 10).toInt()
+            while (n <= het) { add(n / 10f); n++ }
+        }
+
+        Canvas(Modifier.fillMaxSize()) {
+            nac.forEach { z ->
+                val x = xCua(z).toPx()
+                if (x < 0f || x > size.width) return@forEach
+                // Nấc tròn (0,5 · 1,0 · 1,5 · 2,0) vẽ cao và sáng hơn.
+                val tron = (Math.round(z * 10) % 5) == 0
+                drawLine(
+                    if (tron) Color(0xCCFFFFFF) else Color(0x66FFFFFF),
+                    Offset(x, if (tron) size.height * 0.42f else size.height * 0.50f),
+                    Offset(x, size.height * 0.62f),
+                    if (tron) 3f else 2f,
+                )
+            }
+            val giua = size.width / 2f
+            drawLine(Ds.success, Offset(giua, size.height * 0.34f), Offset(giua, size.height * 0.70f), 5f)
+        }
+
+        // Nhãn số vẽ bằng Text thật thay vì vẽ chữ lên canvas — khỏi phải tự đo chữ.
+        var xTruoc = (-999).dp
+        nac.forEach { z ->
+            val x = xCua(z)
+            if (x < 14.dp || x > maxWidth - 14.dp) return@forEach
+            if (x - xTruoc < 34.dp) return@forEach
+            xTruoc = x
+            Text(
+                "%.1f".format(z),
+                color = Color(0xCCFFFFFF),
+                fontSize = 10.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .offset(x = x - 14.dp)
+                    .width(28.dp),
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun ShootModeSwitch(mode: ShootMode, onChange: (ShootMode) -> Unit) {

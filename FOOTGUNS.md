@@ -2154,3 +2154,72 @@ không nhìn thấy gì để chê*.
 chết** — danh sách ứng viên câu nhắc chỉ lấy `FAILING`, không bao giờ lấy
 `UNMEASURED`. Nó nằm im suốt vì `faceOverShoulders` vô tình làm mục 4 luôn đo
 được; gỡ đường đo đó đi là lộ ra ngay.
+
+---
+
+## 73. Tách câu "nâng máy" khỏi "chúc máy" làm hướng dẫn vô nghĩa
+
+**Sai:** mục 3 nói *"nâng máy lên cao hơn"*, mục 4 nói *"chúc máy xuống"* — hai
+câu rời, vì "hai mục riêng thì hai câu riêng".
+
+**Đúng:** mục 3 nói **động tác ghép** (*"Nâng máy cao hơn rồi chúc xuống"*), mục 4
+chỉ **tinh chỉnh** (*"Chúc thêm một chút"*).
+
+**Vì sao:** người cầm máy làm hai động tác đó **cùng lúc**. Nâng máy mà không chúc
+xuống là mẫu trôi khỏi khung ngay, nên bảo riêng từng cái là chỉ đường sai.
+
+PO dùng thật và nói: *"tôi đang quy định là nâng máy lên cao VÀ chúc máy xuống,
+mà bạn chỉ đang cho hướng dẫn là ngửa máy, và chúc máy? rất khó hiểu"*.
+
+⚠️ FOOTGUNS 62 vốn đã ghi đúng câu ghép này rồi. Tách ra là bước lùi, không phải
+cải tiến — tính độc lập của hai PHÉP ĐO không bắt buộc hai CÂU phải rời nhau.
+
+---
+
+## 74. Thứ tự hướng dẫn cứng đi ngược thói quen người chụp
+
+**Sai:** luôn nhắc theo thứ tự tài liệu (hướng mẫu → xa/gần → cao/thấp → …).
+
+**Đúng:** đã gần đúng thì nhắc **mục sai nhiều nhất trước**; chỉ quay về thứ tự
+tài liệu khi còn ≥ 2 mục sai quá 3 lần ngưỡng.
+
+**Vì sao:** PO quan sát: *"khi thấy ảnh mẫu, user sẽ chủ động tạo dáng và đưa góc
+máy theo template TRƯỚC CẢ KHI được hướng dẫn"*. Tới lúc app mở miệng thì người ta
+đã tự làm xong phần lớn — app là **vòng sửa phần còn lại**, không phải người dẫn
+đi từ đầu.
+
+Đi tuần tự từ đầu thì app có thể càm ràm về lệch tâm 6% trong khi góc máy đang sai
+40°, thứ mắt người nhìn thấy ngay và đang định sửa.
+
+Lý do vẫn giữ thứ tự cứng cho ca sai be bét (trích tài liệu): *"Tiến/lùi làm đổi
+luôn kích thước mẫu. Nâng/hạ máy làm đổi góc ngửa/chúc. Làm ngược thứ tự thì bước
+sau phá bước trước."* Khi mọi thứ đã gần đúng thì mức phá nhau đó nhỏ hơn cái giá
+của việc nói sai thứ.
+
+Kèm theo: **im lặng 1 giây đầu** để người dùng làm xong cú đưa máy theo bản năng.
+
+---
+
+## 75. Không phải ảnh nào cũng "lùi ra rồi zoom vào"
+
+**Sai:** một luật chung cho mọi ảnh mẫu, hoặc đưa cả hai lựa chọn cho người dùng
+tự chọn ("lùi lại N bước, HOẶC zoom ra từ từ").
+
+**Đúng:** tách hai nhóm bằng **góc máy đo được**:
+
+| Nhóm | Nhận ra bằng | Hướng dẫn |
+|---|---|---|
+| Méo có chủ ý | \|góc\| > 30° | *"Tiến sát vào, giữ zoom 1x"* — CẤM zoom |
+| Chụp thường | \|góc\| ≤ 30° | lùi ra rồi zoom vào |
+
+**Vì sao:** ảnh chúc từ trên cao cho đầu to, hoặc ngửa từ dưới cho chân dài, lấy
+chất ảnh từ **việc đứng sát với ống góc rộng**. Đứng xa rồi zoom vào cho ra ảnh
+đúng cỡ mẫu nhưng **phẳng** — mất đúng thứ làm nên tấm ảnh.
+
+Ngưỡng 30° đo trên 13 ảnh mẫu: nhóm thường trải −20,4°…+3,9°, nhóm méo là +39,7°
+và −52,8°. Khoảng trống rộng từ 20° tới 40°.
+
+⚠️ `CuePresenter` từng tự ghi nhận đúng vấn đề này — *"App không biết ảnh mẫu
+thuộc kiểu nào thì đừng giả vờ biết"* — rồi giải bằng cách đưa cả hai lựa chọn cho
+người dùng. Nhưng đẩy một quyết định nhiếp ảnh sang người không biết nhiếp ảnh là
+đúng thứ sản phẩm này sinh ra để tránh. Nay đo được góc thì phải tự quyết.

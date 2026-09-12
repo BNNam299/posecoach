@@ -35,6 +35,14 @@ data class CriterionStatus(
      * vì zoom đã bị khoá về 1x ở tầng cảnh báo cầm máy.
      */
     val walkInsteadOfZoom: Boolean = false,
+
+    /**
+     * Ảnh mẫu cố tình chụp sát để tạo méo phối cảnh — xem `TemplateProfile.chupSat`.
+     *
+     * Bật thì câu nhắc phải bảo ĐI BỘ và GIỮ 1x, cấm zoom: zoom từ xa cho ra ảnh
+     * phẳng, mất đúng hiệu ứng làm nên tấm ảnh đó.
+     */
+    val chupSat: Boolean = false,
     /** Câu nhắc chỉnh dáng theo khớp lệch nhất. Chỉ có ở mục dáng. */
     val poseHint: String? = null,
     /**
@@ -307,6 +315,14 @@ internal fun cueTextFor(status: CriterionStatus): String {
         // Với ảnh chân dung thì không có mục chỗ đứng, nên phải quay về câu đi bộ —
         // xem `GuidanceEngine`, nó truyền cờ này vào.
         Criterion.SCALE -> when {
+            // ẢNH MÉO CÓ CHỦ Ý — phải đi bộ, và phải giữ 1x. Zoom là đường tắt
+            // dẫn tới một tấm ảnh khác hẳn: đúng cỡ mẫu trong khung nhưng phẳng.
+            status.chupSat && !status.tamTay -> if (signed > 0) {
+                "Lùi lại " + status.stepsPhrase() + ", giữ zoom 1x"
+            } else {
+                "Tiến sát vào " + status.stepsPhrase() + ", giữ zoom 1x"
+            }
+
             // ẢNH CHÂN DUNG — app KHÔNG kiểm được zoom ở lớp này, nên nó thật sự
             // không biết người dùng đang đứng sai chỗ hay đang zoom sai. Đưa CẢ HAI
             // lựa chọn, KHÔNG thiên vị bên nào.
@@ -397,15 +413,32 @@ internal fun cueTextFor(status: CriterionStatus): String {
         //
         // ⚠️ Nói ĐỘ CAO ĐẶT MÁY, không nói "chúc/hất" — phần chúc là mục 4, mục
         // riêng. Trộn hai thứ vào một câu chính là lỗi FOOTGUNS 62.
+        // ⚠️ NÓI CẢ HAI ĐỘNG TÁC TRONG MỘT CÂU (12/09/2026).
+        //
+        // Trước đây mục 3 chỉ nói "nâng/hạ máy", để phần chúc/ngửa cho mục 4 —
+        // với lý do "hai mục riêng thì hai câu riêng". PO dùng thật và thấy rất
+        // khó hiểu: *"tôi đang quy định là nâng máy lên cao VÀ chúc máy xuống,
+        // mà bạn chỉ đang cho hướng dẫn là ngửa máy, và chúc máy?"*
+        //
+        // Người cầm máy làm hai động tác đó CÙNG LÚC. Nâng máy mà không chúc
+        // xuống là mẫu trôi khỏi khung ngay — nên tách ra nói là chỉ đường sai.
+        //
+        // FOOTGUNS 62 vốn đã ghi đúng câu ghép này rồi; tôi tự tách ra sau đó.
+        //
+        // Phân vai giữa hai mục: mục 3 nói VIỆC LỚN (đặt máy ở đâu, kèm chiều
+        // chúc để giữ mẫu trong khung), mục 4 chỉ TINH CHỈNH khi độ cao đã đúng.
         Criterion.ELEVATION -> when {
-            signed > 0 -> "Nâng máy lên cao hơn, đến khi tích sáng"
-            else -> "Hạ máy xuống thấp hơn, đến khi tích sáng"
+            signed > 0 -> "Nâng máy cao hơn rồi chúc xuống, đến khi tích sáng"
+            else -> "Hạ máy thấp xuống rồi hất lên, đến khi tích sáng"
         }
 
         // pitchCue dương = máy đang hất lên.
+        // MỤC 4 — TINH CHỈNH. Tới đây độ cao đặt máy đã đúng (mục 3 ưu tiên cao
+        // hơn), nên chỉ còn nghiêng trục ống kính thêm chút. Chữ "thêm" là cố ý:
+        // nó nói cho người dùng biết họ đang sửa nốt chứ không phải làm lại.
         Criterion.PITCH -> when {
-            signed > 0 -> "Chúc máy xuống từ từ đến khi tích sáng"
-            else -> "Hất máy lên từ từ đến khi tích sáng"
+            signed > 0 -> "Chúc máy xuống thêm một chút, đến khi tích sáng"
+            else -> "Hất máy lên thêm một chút, đến khi tích sáng"
         }
 
         // Mục cuối cùng và nhẹ nhất — không bao giờ chặn việc chụp.

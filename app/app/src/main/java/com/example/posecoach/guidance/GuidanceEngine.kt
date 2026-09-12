@@ -207,6 +207,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 // đi bộ chứ không nói zoom — app không biết người dùng đang zoom
                 // hay đang đứng sai chỗ.
                 walkInsteadOfZoom = c == Criterion.SCALE && !profile.framing.seesLegs,
+                chupSat = profile.chupSat,
                 rollFromDevice = rollFromDevice,
                 tuChup = mode.tuChup,
                 latGuong = mode.latGuong,
@@ -250,7 +251,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                     else -> false
                 }
             }
-            .sortedBy { it.criterion.ordinal }
+            .let { sapXepNhac(it) }
 
         // ⚠️ THỨ TỰ HƯỚNG DẪN: MÁY TRƯỚC, MẪU SAU.
         //
@@ -341,8 +342,26 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         // Im hẳn lúc này bỏ mất phần có giá trị nhất của sản phẩm — bản iOS xếp dáng
         // là mục cuối cùng chính vì nó phải làm SAU khi máy đã đúng chỗ.
         val poseCandidates = cueCandidates.filter { it.criterion.forModel }
+        // ⚠️ IM LẶNG TRONG LÚC NGƯỜI DÙNG ĐANG TỰ ĐẶT MÁY (12/09/2026).
+        //
+        // PO quan sát: *"khi thấy ảnh mẫu, user sẽ chủ động tạo dáng và đưa góc
+        // máy theo template TRƯỚC CẢ KHI được hướng dẫn"*. Nói chen vào lúc họ
+        // đang làm dở là vừa thừa vừa gây rối — thứ họ đang sửa sẽ khác thứ app
+        // đang nói.
+        //
+        // Chờ máy đứng yên đủ lâu MỘT LẦN rồi mới bắt đầu nói. Sau đó nói bình
+        // thường, không chờ lại nữa — chờ mỗi lần sẽ thành câm suốt vì tay người
+        // luôn động.
+        if (daYenLanDauMs == null &&
+            angularSpeedDegPerSec <= GuidanceTiming.MAX_ANGULAR_SPEED_DEG_PER_SEC
+        ) {
+            daYenLanDauMs = nowMs
+        }
+        val daQuaLucDatMay = daYenLanDauMs?.let { nowMs - it >= CHO_DAT_MAY_MS } == true
+
         val cue = when {
             prepWarning != null -> null
+            !daQuaLucDatMay -> null
             readyToPose -> presenter.update(poseCandidates, nowMs, angularSpeedDegPerSec)
             else -> presenter.update(cueCandidates, nowMs, angularSpeedDegPerSec)
         }
@@ -361,6 +380,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
 
         // --- Cổng chụp ---
         val steady = angularSpeedDegPerSec <= GuidanceTiming.MAX_ANGULAR_SPEED_DEG_PER_SEC
+
         val allPassing = statuses.isNotEmpty() && statuses.all { it.state == GateState.PASSING }
         val good = prepWarning == null && allPassing && steady
 
@@ -440,6 +460,14 @@ class GuidanceEngine(private val profile: TemplateProfile) {
          */
         const val READY_PERCENT = 85
 
+        /**
+         * Máy phải đứng yên bấy nhiêu mili-giây rồi app mới bắt đầu nói.
+         *
+         * 1 giây: đủ để người dùng làm xong cú đưa máy theo bản năng, chưa đủ lâu
+         * để họ thấy app đơ. Chỉ chờ MỘT LẦN mỗi phiên.
+         */
+        const val CHO_DAT_MAY_MS = 1_000L
+
         const val DEVICE_ROLL_BLAME_DEG = 3.0
 
         /**
@@ -454,6 +482,55 @@ class GuidanceEngine(private val profile: TemplateProfile) {
          */
         const val DEVICE_ROLL_TRUST_PITCH_DEG = 60.0
     }
+
+    /**
+     * SẮP THỨ TỰ NHẮC — theo thói quen người chụp, không theo danh sách cứng.
+     *
+     * ## Quan sát của PO (12/09/2026)
+     *
+     * *"Khi thấy ảnh mẫu, user sẽ chủ động tạo dáng và đưa góc máy theo template
+     * TRƯỚC CẢ KHI được hướng dẫn."*
+     *
+     * Nghĩa là tới lúc app mở miệng, người ta đã tự làm xong phần lớn. App nên là
+     * **vòng sửa phần còn lại**, không phải người dẫn đi từ đầu. Đi tuần tự từ
+     * đầu danh sách thì nó có thể càm ràm về lệch tâm 6% trong khi góc máy đang
+     * sai 40° — thứ mắt người nhìn thấy ngay và đang định sửa.
+     *
+     * ## Hai chế độ
+     *
+     * | Tình huống | Xếp theo | Vì sao |
+     * |---|---|---|
+     * | Còn ≥ 2 mục sai **be bét** (quá 3 lần ngưỡng) | thứ tự tài liệu | lúc này các bước phá nhau thật, phải đi tuần tự |
+     * | Đã gần đúng | **mức sai lớn nhất trước** | trùng với thứ user đang định sửa |
+     *
+     * Lý do giữ thứ tự cứng cho ca be bét, trích tài liệu: *"Tiến/lùi làm đổi
+     * luôn kích thước mẫu. Nâng/hạ máy làm đổi góc ngửa/chúc. Làm ngược thứ tự
+     * thì bước sau phá bước trước."*
+     *
+     * ⚠️ Không sợ nhấp nháy: luật một câu tối thiểu 2 giây ở `CuePresenter` vẫn
+     * giữ nguyên, nên thứ tự đổi không làm chữ nhảy.
+     */
+    private fun sapXepNhac(ds: List<CriterionStatus>): List<CriterionStatus> {
+        fun mucSai(s: CriterionStatus): Double {
+            // Không đo được thì xếp trên cùng: app đang không nhìn thấy, mọi câu
+            // sửa khác đều là đoán.
+            val d = s.deviation ?: return Double.MAX_VALUE
+            val a = s.band?.accept ?: return 0.0
+            return if (a <= 1e-9) 0.0 else d / a
+        }
+        val beBet = ds.count { mucSai(it) > 3.0 && it.deviation != null }
+        return if (beBet >= 2) {
+            ds.sortedBy { it.criterion.ordinal }
+        } else {
+            ds.sortedWith(
+                compareByDescending<CriterionStatus> { mucSai(it) }
+                    .thenBy { it.criterion.ordinal }
+            )
+        }
+    }
+
+    /** Lần đầu máy đứng yên. `null` = chưa yên lần nào kể từ khi mở màn chụp. */
+    private var daYenLanDauMs: Long? = null
 
     private fun bandOf(c: Criterion, pitchSource: PitchSource? = null): Band? =
         GuidanceConfig.bandFor(c, profile.framing, profile.measurement.scale, pitchSource)

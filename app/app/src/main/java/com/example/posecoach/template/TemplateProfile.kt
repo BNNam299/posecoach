@@ -286,6 +286,26 @@ data class TemplateProfile(
     val skipped: Map<Criterion, String>,
     /** Nhóm khớp được chấm ở mục dáng. Chân dung cận không có nhóm chân. */
     val poseGroups: Set<PoseGroup>,
+
+    /**
+     * Ảnh mẫu này CỐ TÌNH chụp sát bằng ống góc rộng để tạo méo phối cảnh.
+     *
+     * Hai kiểu quen thuộc: chúc từ trên cao xuống cho đầu và thân trên to ra, và
+     * ngửa từ dưới lên cho chân dài ra. Méo đã nướng vào ảnh, và quan trọng hơn:
+     * **không tái hiện được bằng cách đứng xa rồi zoom vào** — zoom từ xa cho ra
+     * ảnh phẳng, mất đúng cái làm nên tấm ảnh.
+     *
+     * Nên nhóm này phải hướng dẫn *"tiến sát vào, giữ zoom 1x"* và CẤM zoom. Ảnh
+     * chụp thường thì ngược lại: lùi ra rồi zoom vào cho tỉ lệ đẹp.
+     *
+     * ⚠️ Trước 12/09/2026 app KHÔNG phân biệt được, và `CuePresenter` tự ghi nhận:
+     * *"App không biết ảnh mẫu thuộc kiểu nào thì đừng giả vờ biết"* — nên nó đưa
+     * cả hai lựa chọn cho người dùng tự chọn. Nhưng đẩy một quyết định nhiếp ảnh
+     * sang người không biết nhiếp ảnh là đúng thứ sản phẩm này sinh ra để tránh.
+     *
+     * Nay phân biệt được, vì đã đo được góc máy bằng độ.
+     */
+    val chupSat: Boolean = false,
 ) {
     /** Tiêu chí áp dụng ở một chỗ cụ thể. Hướng dẫn realtime ít mục hơn chọn ảnh. */
     fun activeFor(stage: Stage): Set<Criterion> =
@@ -312,6 +332,24 @@ data class TemplateProfile(
          * nổi mốc so sánh thì loại khỏi hồ sơ. Không đoán theo tên lớp khung hình —
          * đo thật rồi mới kết luận.
          */
+        /**
+         * Góc máy vượt mức này thì coi ảnh mẫu là CỐ TÌNH chụp sát để tạo méo.
+         *
+         * Đo trên 13 ảnh mẫu cài sẵn (12/09/2026), góc trục thân:
+         *
+         * ```
+         * chụp thường : −0,3  −2,5  −2,8  +3,9  −4,5  −13,0  −15,8  −16,7  −20,4
+         * méo chủ ý   :                                      +39,7        −52,8
+         * ```
+         *
+         * Có một khoảng trống rộng từ 20° tới 40°. Chọn 30° để có biên cả hai
+         * phía: trên hẳn nhóm thường (cao nhất 20,4°) và dưới hẳn nhóm méo
+         * (thấp nhất 39,7°).
+         *
+         * ⚠️ 13 ảnh là mẫu nhỏ. Thêm ảnh mẫu mới thì chạy lại phép đo này.
+         */
+        const val GOC_CHUP_SAT_DEG = 30.0
+
         fun from(
             frame: PoseFrame,
             framing: FramingClass,
@@ -389,6 +427,7 @@ data class TemplateProfile(
                 active = active,
                 skipped = skipped,
                 poseGroups = framing.poseGroups,
+                chupSat = m.tiltDeg?.let { kotlin.math.abs(it) > GOC_CHUP_SAT_DEG } == true,
             )
         }
     }
