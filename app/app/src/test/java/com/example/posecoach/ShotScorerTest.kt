@@ -358,4 +358,54 @@ class ShotScorerTest {
         val s = scoreOf(tpl, m(yawDeg = 0.0))
         assertEquals(1.0, s.directionFactor, 1e-9)
     }
+
+    // =================================================================
+    // ⚠️ ĐIỂM SỐ PHẢI ĂN KHỚP VỚI DẤU TÍCH (12/09/2026)
+    // =================================================================
+
+    /**
+     * Đo trên video test thật: **7/7 tích xanh cho 73%**, trong khi một khung
+     * khác **4/6 tích lại cho 84%**. Điểm và tích đi ngược chiều nhau.
+     *
+     * Nguyên nhân: `accept` (ngưỡng đạt) và `reference` (lệch hết cỡ) là hai
+     * thang rời nhau — mục 3 đạt ở 6° nhưng hết cỡ ở 35°, nên một khung đạt sát
+     * ngưỡng vẫn mất 17% trọng số. Cộng dồn thì xanh hết vẫn không quá ~75%.
+     *
+     * Hậu quả cho người dùng: mốc 85% mà PO yêu cầu **không bao giờ với tới**.
+     */
+    @Test
+    fun `moi muc dat sat nguong thi diem van phai tu 90 tro len`() {
+        val tpl = m()
+        // Lệch đúng bằng ngưỡng đạt ở mọi mục.
+        val accepts = mapOf(
+            Criterion.SCALE to 0.10,
+            Criterion.CENTER to 0.05,
+            Criterion.ELEVATION to 6.0,
+            Criterion.POSE to 15.0,
+        )
+        val satNguong = m(
+            scale = tpl.scale!! * 1.10,
+            centerX = tpl.centerX!! + 0.05,
+            elevationDeg = tpl.elevationDeg!! + 6.0,
+            pose = mapOf(PoseGroup.SPINE to listOf(15.0)),
+        )
+        val s = ShotScorer.score(
+            profile(tpl), satNguong, Stage.SELECTION,
+            acceptOf = { accepts[it] },
+        )
+        assertTrue("Mọi mục vừa chạm ngưỡng đạt mà chỉ được ${s.total}", s.total >= 90.0)
+    }
+
+    @Test
+    fun `trong vung dat van con phan biet duoc khung nao dep hon`() {
+        // Cào bằng mọi khung trong vùng đạt thì bộ giữ khung mất cơ sở xếp hạng
+        // và sẽ giữ lại 5 khung ngẫu nhiên.
+        val tpl = m()
+        val accepts = mapOf(Criterion.CENTER to 0.05)
+        fun diem(lech: Double) = ShotScorer.score(
+            profile(tpl), m(centerX = tpl.centerX!! + lech), Stage.SELECTION,
+            acceptOf = { accepts[it] },
+        ).total
+        assertTrue("khớp hẳn phải hơn đạt sát ngưỡng", diem(0.0) > diem(0.049))
+    }
 }

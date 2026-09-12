@@ -90,6 +90,15 @@ class ShotSession(
      *
      * @return `true` nếu khung được giữ lại (đã lưu ra file).
      */
+    /**
+     * Ngưỡng ĐẠT của một mục — để `ShotScorer` uốn thang điểm cho ăn khớp với
+     * dấu tích. Xem `ShotScorer.VUNG_DAT`.
+     */
+    private fun acceptCua(c: com.example.posecoach.template.Criterion): Double? =
+        com.example.posecoach.guidance.GuidanceConfig.bandFor(
+            c, profile.framing, profile.measurement.scale,
+        )?.accept
+
     fun offer(bitmap: Bitmap, pose: PoseFrame, timeMs: Long): Boolean {
         if (finished) return false
         if (pose.isEmpty) return false
@@ -115,7 +124,10 @@ class ShotSession(
         // tính tới lúc này" thì khung đầu tiên luôn được coi là nét nhất và chiếm
         // chỗ oan. Vậy nên: trong lúc quay xét theo hình học, lúc chốt mới đưa độ
         // nét vào để chấm lại toàn bộ.
-        val score = ShotScorer.score(profile, measurement, Stage.SELECTION, post = null)
+        val score = ShotScorer.score(
+            profile, measurement, Stage.SELECTION, post = null,
+            acceptOf = ::acceptCua,
+        )
 
         val id = nextId++
         val candidate = ShotCandidate(
@@ -214,6 +226,7 @@ class ShotSession(
                     profile = profile,
                     candidate = p.measurement,
                     stage = Stage.SELECTION,
+                    acceptOf = ::acceptCua,
                     post = PostQuality(
                         sharpness = norms[i], crop = p.crop,
                         // Ưu tiên số đo trên ảnh độ phân giải cao; chỉ lùi về số

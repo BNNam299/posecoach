@@ -158,7 +158,12 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         val dev = ShotScorer.deviation(profile.measurement, live)
 
         // Điểm giống mẫu NGAY LÚC NÀY — cùng hàm với bước chấm ảnh sau khi quay.
-        val match = ShotScorer.score(profile, live, Stage.GUIDANCE).total
+        // Truyen nguong DAT vao de diem so an khop voi dau tich: moi muc xanh
+        // thi diem phai >= 90. Xem `ShotScorer.VUNG_DAT`.
+        val match = ShotScorer.score(
+            profile, live, Stage.GUIDANCE,
+            acceptOf = { c -> bandOf(c, dev.pitchSource)?.accept },
+        ).total
             .takeIf { it.isFinite() }?.toInt()?.coerceIn(0, 100)
         val t = profile.measurement
 

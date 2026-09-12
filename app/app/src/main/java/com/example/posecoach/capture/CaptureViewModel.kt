@@ -84,6 +84,14 @@ class CaptureViewModel : ViewModel() {
     private var zoomRatio: Float = 1f
 
     /**
+     * Góc mở DỌC của ống kính ở mức zoom và tỉ lệ khung hiện tại, độ.
+     *
+     * Mục 3 cần con số này. Màn chụp đẩy vào vì ViewModel không cầm camera.
+     * `null` = chưa đọc được, tầng đo lùi về `Measurer.VFOV_ANH_MAU`.
+     */
+    private var vFovDeg: Double? = null
+
+    /**
      * Chế độ chụp. Đổi HAI thứ: câu chữ (ai cầm máy) và việc lật khung xương
      * (ảnh gương). Xem [ShootMode].
      */
@@ -112,6 +120,7 @@ class CaptureViewModel : ViewModel() {
         deviceRollDeg = null
         devicePitchDeg = null
         zoomRatio = 1f
+        vFovDeg = null
         // ⚠️ GIỮ LẠI hai lựa chọn của người dùng. Xoá chúng thì bật công tắc xong
         // màn hình phân tích lại ảnh mẫu, `startFresh` chạy, công tắc tự tắt —
         // người dùng bấm mãi không được.
@@ -147,6 +156,11 @@ class CaptureViewModel : ViewModel() {
         _state.update { it.copy(mode = m) }
     }
 
+
+    /** Màn chụp đẩy góc mở ống kính đọc từ phần cứng vào. */
+    fun onVerticalFovChanged(deg: Double?) {
+        vFovDeg = deg
+    }
 
     fun onZoomChanged(ratio: Float) {
         zoomRatio = ratio
@@ -251,7 +265,10 @@ class CaptureViewModel : ViewModel() {
         // hinh cua anh mau. Day la bat bien so 1 cua du an: huong dan realtime va
         // cham diem sau khi quay phai doc tu cung mot phep do.
         val live = if (detected && profile != null) {
-            Measurer.measure(frame, profile.framing, minVisibility)
+            Measurer.measure(
+                frame, profile.framing, minVisibility,
+                vFovDeg = vFovDeg ?: Measurer.VFOV_ANH_MAU,
+            )
         } else null
 
         val result = eng?.update(

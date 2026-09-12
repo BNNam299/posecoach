@@ -109,6 +109,15 @@ data class ShotScore(
 object ShotScorer {
 
     /**
+     * Lệch đúng bằng ngưỡng đạt thì coi như mất bấy nhiêu phần trọng số.
+     *
+     * 0,10 nghĩa là **mọi mục vừa chạm ngưỡng đạt ⇒ điểm tổng 90**. Chọn 0,10 chứ
+     * không phải 0 để trong vùng đạt vẫn còn phân biệt được khung nào đẹp hơn —
+     * bộ giữ khung cần XẾP HẠNG, cào bằng thì nó giữ lại 5 khung ngẫu nhiên.
+     */
+    const val VUNG_DAT = 0.10
+
+    /**
      * So một khung hình với ảnh mẫu.
      *
      * @param profile hồ sơ ảnh mẫu — quyết định **những mục nào được chấm**
@@ -121,6 +130,13 @@ object ShotScorer {
         candidate: PoseMeasurement,
         stage: Stage,
         post: PostQuality? = null,
+        /**
+         * Ngưỡng ĐẠT của từng mục, cùng đơn vị với độ lệch. `null` = không biết.
+         *
+         * ⚠️ Có nó thì điểm số mới ĂN KHỚP với dấu tích — xem [VUNG_DAT].
+         * Không truyền thì điểm vẫn tính được, chỉ là thang cũ.
+         */
+        acceptOf: ((Criterion) -> Double?)? = null,
     ): ShotScore {
         val dev = deviation(profile.measurement, candidate)
         val applicable = profile.activeFor(stage)
@@ -128,6 +144,42 @@ object ShotScorer {
         val parts = mutableMapOf<String, Double>()
         var weighted = 0.0
         var weightSum = 0.0
+
+        /**
+         * Uốn lại thang điểm cho ăn khớp với dấu tích.
+         *
+         * ## Vấn đề
+         *
+         * `accept` (ngưỡng đạt) và `reference` (lệch hết cỡ) là hai thang rời
+         * nhau — ví dụ mục 3: đạt ở 6°, hết cỡ ở 35°. Nên một khung ĐẠT SÁT
+         * ngưỡng vẫn mất 6/35 = 17% trọng số của mục đó. Cộng dồn 6 mục thì
+         * **xanh hết vẫn chỉ ~73%**.
+         *
+         * Đo trên video test thật (12/09/2026): 7/7 tích xanh cho **73%**, trong
+         * khi một khung khác 4/6 tích lại cho **84%**. Điểm và tích đi ngược
+         * chiều nhau — với người dùng thì đó là app tự mâu thuẫn.
+         *
+         * ## Cách sửa
+         *
+         * Chia làm hai đoạn:
+         * - Trong ngưỡng đạt: badness chạy 0 → [VUNG_DAT]. Đạt sát ngưỡng vẫn
+         *   giữ được 90% trọng số.
+         * - Ngoài ngưỡng: chạy tiếp [VUNG_DAT] → 1 cho tới mốc `reference`.
+         *
+         * Nhờ vậy **mọi mục xanh ⇒ điểm ≥ 90**, nên mốc 85% mà PO yêu cầu mới
+         * với tới được.
+         */
+        fun uon(c: Criterion, lech: Double?): Double? {
+            if (lech == null) return null
+            val accept = acceptOf?.invoke(c) ?: return lech / c.reference
+            if (accept <= 1e-9) return lech / c.reference
+            return if (lech <= accept) {
+                lech / accept * VUNG_DAT
+            } else {
+                val con = (c.reference - accept).coerceAtLeast(1e-9)
+                VUNG_DAT + (lech - accept) / con * (1.0 - VUNG_DAT)
+            }
+        }
 
         /** @param badness 0 = trùng khớp, 1 = lệch hết cỡ. `null` = không đo được ở khung này. */
         fun add(c: Criterion, badness: Double?) {
@@ -147,12 +199,12 @@ object ShotScorer {
 
         // ⚠️ HƯỚNG MẪU KHÔNG nằm trong phép cộng trung bình — nó là HỆ SỐ NHÂN,
         // xử lý riêng bên dưới. Xem [directionFactor] để biết vì sao.
-        add(Criterion.SCALE, dev.scaleRatio?.div(Criterion.SCALE.reference))
-        add(Criterion.CENTER, dev.centerX?.div(Criterion.CENTER.reference))
-        add(Criterion.ELEVATION, dev.elevationDeg?.div(Criterion.ELEVATION.reference))
-        add(Criterion.PITCH, dev.pitchCue?.div(Criterion.PITCH.reference))
-        add(Criterion.PERSPECTIVE, dev.perspective?.div(Criterion.PERSPECTIVE.reference))
-        add(Criterion.POSE, dev.poseDeg?.div(Criterion.POSE.reference))
+        add(Criterion.SCALE, uon(Criterion.SCALE, dev.scaleRatio))
+        add(Criterion.CENTER, uon(Criterion.CENTER, dev.centerX))
+        add(Criterion.ELEVATION, uon(Criterion.ELEVATION, dev.elevationDeg))
+        add(Criterion.PITCH, uon(Criterion.PITCH, dev.pitchCue))
+        add(Criterion.PERSPECTIVE, uon(Criterion.PERSPECTIVE, dev.perspective))
+        add(Criterion.POSE, uon(Criterion.POSE, dev.poseDeg))
 
         // Hậu kỳ đưa vào dạng ĐIỂM chứ không phải độ lệch, nên đảo lại thành badness.
         add(Criterion.SHARPNESS, post?.sharpness?.let { 1.0 - it.coerceIn(0.0, 1.0) })

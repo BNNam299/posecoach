@@ -2006,3 +2006,35 @@ thường, không báo gì. Đúng kiểu sai mà không ai biết.
 
 Ngưỡng 5% chứ không đòi bằng tuyệt đối: có máy trả về 1,0000001 do làm tròn số
 thực, đòi bằng đúng sẽ sinh vòng lặp đặt-zoom không bao giờ dừng.
+
+---
+
+## 67. `accept` và `reference` là hai thang rời — điểm số đi ngược dấu tích
+
+**Sai:** chấm điểm bằng `độ_lệch / reference`, trong khi dấu tích chấm bằng
+`độ_lệch ≤ accept`.
+
+**Đúng:** uốn thang điểm làm hai đoạn — trong ngưỡng đạt thì badness chạy
+`0 → 0,10`, ngoài ngưỡng mới chạy tiếp `0,10 → 1`. Xem `ShotScorer.VUNG_DAT`.
+
+**Vì sao:** hai mốc cách nhau rất xa (mục 3: đạt ở 6°, hết cỡ ở 35°), nên một
+khung **đạt sát ngưỡng vẫn mất 17% trọng số** của mục đó. Cộng dồn 6 mục thì
+xanh hết vẫn không quá ~75%.
+
+Đo trên video test thật (12/09/2026):
+
+```
+7/7 tích xanh  ->  73%
+4/6 tích xanh  ->  84%     <- nhiều tích hơn mà điểm THẤP hơn
+```
+
+Với người dùng thì đó là app tự mâu thuẫn. Và mốc 85% mà PO yêu cầu để nhắc
+"chuẩn bị đẹp" thì **không bao giờ với tới được**.
+
+⚠️ Đừng sửa bằng cách hạ `reference` — nó có nghĩa riêng ("lệch tới mức này coi
+như sai hoàn toàn") và còn dùng cho việc xếp hạng khung hình. Sửa ở chỗ nối hai
+thang, không sửa hai đầu.
+
+⚠️ Cũng đừng cào bằng mọi khung trong vùng đạt về 100: bộ giữ khung cần **xếp
+hạng** các khung với nhau, cào bằng thì nó giữ lại 5 khung ngẫu nhiên. Đó là lý
+do `VUNG_DAT` là 0,10 chứ không phải 0.

@@ -293,6 +293,12 @@ fun CaptureScreen(
     //  - cam bien tra so ~50-100 lan/giay
     //  - muc zoom chi doi khi nguoi dung chum hai ngon
     // Lay mau ~30 lan/giay la du cho ca hai, va re hon nhieu so voi doc dung nhip.
+    // Goc mo ong kinh doi khi: camera san sang, nguoi dung zoom, hoac biet ti le
+    // anh mau (vi khung bi cat ve ti le do). Doc lai o ca ba moc.
+    LaunchedEffect(state.cameraReady, state.zoomRatio, state.templateAspect) {
+        vm.onVerticalFovChanged(controller?.verticalFovDeg(state.templateAspect))
+    }
+
     val tilt = remember { DeviceTilt(context) }
     DisposableEffect(tilt) {
         tilt.start()
