@@ -172,14 +172,57 @@ class CuePresenterTest {
     // ================================================================
 
     @Test
-    fun `muc ve may duoc uu tien hon muc ve mau`() {
-        // Hướng của mẫu đo TƯƠNG ĐỐI với vị trí máy. Bảo mẫu xoay khi người cầm
-        // máy còn đứng lệch thì lát nữa họ dịch chỗ, hướng vừa chỉnh lại sai.
-        assertTrue(Criterion.PERSPECTIVE.ordinal < Criterion.YAW.ordinal)
-        assertTrue(Criterion.SCALE.ordinal < Criterion.YAW.ordinal)
-        assertTrue(Criterion.CENTER.ordinal < Criterion.YAW.ordinal)
-        assertTrue(Criterion.ELEVATION.ordinal < Criterion.YAW.ordinal)
-        assertTrue(Criterion.PITCH.ordinal < Criterion.YAW.ordinal)
+    fun `thu tu kiem dung theo tai lieu`() {
+        // 1 hướng mẫu → 2 xa/gần → 3 cao/thấp → 4 ngửa/chúc → 5 trái/phải → 6 dáng
+        val thuTu = listOf(
+            Criterion.YAW, Criterion.PERSPECTIVE, Criterion.SCALE,
+            Criterion.ELEVATION, Criterion.PITCH, Criterion.CENTER, Criterion.POSE,
+        )
+        for (i in 1 until thuTu.size) {
+            assertTrue(
+                "${thuTu[i - 1]} phải đứng trước ${thuTu[i]}",
+                thuTu[i - 1].ordinal < thuTu[i].ordinal,
+            )
+        }
+    }
+
+    /**
+     * ⚠️ ĐÃ ĐỔI CHỦ Ý 12/09/2026 — trước đây test này đòi NGƯỢC LẠI.
+     *
+     * Lập luận cũ: *"hướng của mẫu đo tương đối với vị trí máy; bảo mẫu xoay khi
+     * người cầm máy còn đứng lệch thì lát nữa họ dịch chỗ, hướng vừa chỉnh lại
+     * sai"*. Lập luận này không sai.
+     *
+     * Nhưng tài liệu gốc xếp hướng mẫu lên ĐẦU, với lý do nặng hơn:
+     *
+     * > *"Khi mẫu quay mặt về máy, tay TRÁI của mẫu nằm ở bên PHẢI màn hình. Khi
+     * > mẫu quay lưng thì ngược lại. Nếu hướng chưa đúng mà đã đi kiểm tay chân,
+     * > app sẽ so nhầm tay trái với tay phải và ra cue **sai hoàn toàn**."*
+     *
+     * Cân nhắc: lập luận cũ nói về LÃNG PHÍ (phải chỉnh lại một lần), lập luận
+     * mới nói về SAI (câu nhắc ngược 180°). Sai nặng hơn lãng phí.
+     *
+     * Thêm nữa mẫu là NGƯỜI — họ cần thời gian nghe và làm theo, nên nói sớm thì
+     * việc của họ chạy song song với việc của người cầm máy. Còn nỗi lo "chỉnh
+     * rồi lại lệch" đã có vùng trễ lo: mục đã đạt chỉ mở lại khi lệch quá 3 lần
+     * ngưỡng.
+     */
+    @Test
+    fun `huong mau dung dau, dang dung cuoi`() {
+        assertEquals(0, Criterion.YAW.ordinal)
+        assertTrue(Criterion.POSE.ordinal > Criterion.CENTER.ordinal)
+    }
+
+    @Test
+    fun `may nghieng xuong cuoi de khong cuop loi`() {
+        // Tay người luôn vẹo 1-3° nên mục này gần như không tự tắt. Đứng đầu thì
+        // nó bịt kín kênh hướng dẫn — đo trên video test thật: 7/9 tới 9/11 khung.
+        for (c in listOf(
+            Criterion.YAW, Criterion.SCALE, Criterion.ELEVATION,
+            Criterion.PITCH, Criterion.CENTER, Criterion.POSE,
+        )) {
+            assertTrue("$c phải đứng trước ROLL", c.ordinal < Criterion.ROLL.ordinal)
+        }
     }
 
     @Test

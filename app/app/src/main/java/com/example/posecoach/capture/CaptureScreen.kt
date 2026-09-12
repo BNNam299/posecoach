@@ -48,7 +48,6 @@ import com.example.posecoach.media.UprightBitmap
 import com.example.posecoach.camera.CaptureController
 import com.example.posecoach.face.FaceAnalyzer
 import com.example.posecoach.guidance.GateState
-import com.example.posecoach.guidance.KieuChanDung
 import com.example.posecoach.sensors.DeviceTilt
 import com.example.posecoach.ui.CriteriaChecklist
 import com.example.posecoach.ui.CriteriaProgress
@@ -288,20 +287,6 @@ fun CaptureScreen(
         }
     }
 
-    // GIU MUC ZOOM DA GHIM.
-    //
-    // Chay lai moi khi muc ghim doi (nguoi dung doi kieu chan dung) hoac khi
-    // zoom that bi lech (chum hai ngon - PreviewView tu bat san, khong tat duoc
-    // tu day). Khong ghim thi khong lam gi.
-    LaunchedEffect(state.ghimZoom, state.zoomRatio, state.cameraReady) {
-        val ghim = state.ghimZoom ?: return@LaunchedEffect
-        if (!state.cameraReady) return@LaunchedEffect
-        if (abs(state.zoomRatio - ghim) > ghim * 0.05f) {
-            controller?.setZoom(ghim)
-            controller?.let { c -> vm.onZoomChanged(c.zoomRatio) }
-        }
-    }
-
     // --- Cam bien nghieng + muc zoom ---
     //
     // Ca hai deu chay o nhip RIENG, khong dong bo voi nhip khung hinh camera:
@@ -524,26 +509,24 @@ fun CaptureScreen(
                 // Chip zoom nam TREN CUNG cua cum duoi, de len khung hinh - dung
                 // cho camera goc cua Android dat no. Van hien trong luc dang quay:
                 // doi zoom giua chung la viec hop le, khac han voi doi che do.
-                if (hasPermission && state.cameraReady) {
-                    // Anh chan dung: KHONG cho zoom tu do. Ghim lai thi "co mau
-                    // trong khung" moi xac dinh duoc khoang cach. Nguoi dung doi
-                    // chinh cai ho quan tam - dung gan hay dung xa - chu khong
-                    // phai doi mot con so zoom ma ho khong biet nghia.
-                    if (state.ghimZoom != null) {
-                        KieuChanDungSwitch(state.kieuChanDung) { vm.onKieuChanDungChanged(it) }
-                        Spacer(Modifier.height(12.dp))
-                    } else if (zoomStops.size > 1) {
-                        ZoomBar(
-                            current = state.zoomRatio,
-                            stops = zoomStops,
-                            range = zoomRange,
-                            onPick = {
-                                controller?.setZoom(it)
-                                controller?.let { c -> vm.onZoomChanged(c.zoomRatio) }
-                            },
-                        )
-                        Spacer(Modifier.height(12.dp))
-                    }
+                // Bo dieu khien zoom binh thuong, nguoi dung tu quyet.
+                //
+                // ⚠️ Da thu GHIM zoom theo anh mau (12/09/2026) roi BO: app tu doi
+                // zoom sau lung nguoi dung la xam pham, va PO bao dung ngay khi
+                // test. Khoang cach van tinh duoc vi app biet muc zoom cua chinh
+                // no - `DistanceEstimator` nhan `zoomRatio` - nen zoom khong con
+                // la duong lach qua muc xa/gan nua.
+                if (hasPermission && state.cameraReady && zoomStops.size > 1) {
+                    ZoomBar(
+                        current = state.zoomRatio,
+                        stops = zoomStops,
+                        range = zoomRange,
+                        onPick = {
+                            controller?.setZoom(it)
+                            controller?.let { c -> vm.onZoomChanged(c.zoomRatio) }
+                        },
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
                 state.templateError?.let {
                     Text(
@@ -1126,42 +1109,6 @@ private fun ModeSwitch(burst: Boolean, onChange: (Boolean) -> Unit) {
     ) {
         ModeChip("Quay video", selected = !burst) { onChange(false) }
         ModeChip("Chup lien tuc", selected = burst) { onChange(true) }
-    }
-}
-
-/**
- * CHỌN KIỂU CHÂN DUNG — đứng gần hay đứng xa.
- *
- * Thay cho dãy chip zoom khi ảnh mẫu không thấy chân. Người dùng chọn thứ họ
- * **nhìn thấy trong ảnh** (mặt nổi khối hay mặt phẳng), còn việc quy ra mức zoom
- * là chuyện của app. Hỏi thẳng "1x hay 3x" thì người không biết chụp ảnh không
- * trả lời được.
- *
- * Xem `KieuChanDung` để biết vì sao chỗ này phải hỏi thay vì đo.
- */
-@Composable
-private fun KieuChanDungSwitch(kieu: KieuChanDung, onChange: (KieuChanDung) -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(
-            Modifier
-                .clip(RoundedCornerShape(Ds.rPill))
-                .background(Ds.overlayScrim)
-                .padding(3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            KieuChanDung.entries.forEach { k ->
-                ModeChip(k.nhan, selected = kieu == k) { onChange(k) }
-            }
-        }
-        Spacer(Modifier.height(5.dp))
-        // Noi ro app dang giu zoom - neu khong nguoi dung chum hai ngon thay no
-        // bat ve cho cu se tuong may hong.
-        Text(
-            "${kieu.moTa}  ·  đang giữ ${"%.0f".format(kieu.zoomGhim)}x",
-            color = Color(0xCCFFFFFF), fontSize = 11.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 24.dp),
-        )
     }
 }
 

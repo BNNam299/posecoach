@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModel
 import com.example.posecoach.face.FaceInfo
 import com.example.posecoach.guidance.CameraPrep
 import com.example.posecoach.guidance.GuidanceEngine
-import com.example.posecoach.guidance.KieuChanDung
 import com.example.posecoach.guidance.ShootMode
 import com.example.posecoach.measure.Measurer
 import com.example.posecoach.pose.FramingClass
@@ -149,19 +148,6 @@ class CaptureViewModel : ViewModel() {
     }
 
 
-    /**
-     * Nguoi dung doi kieu chan dung. Doi luon muc zoom ghim theo.
-     *
-     * Man chup doc [CaptureUiState.ghimZoom] roi dat zoom that cho camera —
-     * ViewModel khong cam camera nen khong tu dat duoc.
-     */
-    fun onKieuChanDungChanged(k: KieuChanDung) = _state.update {
-        it.copy(
-            kieuChanDung = k,
-            ghimZoom = if (KieuChanDung.canHoi(it.templateFraming)) k.zoomGhim else null,
-        )
-    }
-
     fun onZoomChanged(ratio: Float) {
         zoomRatio = ratio
         _state.update { it.copy(zoomRatio = ratio) }
@@ -220,10 +206,6 @@ class CaptureViewModel : ViewModel() {
                 templateName = name, templateThumb = thumb, templateFraming = framing,
                 criteriaSummary = profile.describe(),
                 templatePortrait = portrait,
-                // Anh khong thay chan thi ghim zoom lai, xem KieuChanDung.
-                ghimZoom = if (KieuChanDung.canHoi(framing)) {
-                    it.kieuChanDung.zoomGhim
-                } else null,
                 templateAspect = templateAspect,
                 analyzingTemplate = false, templateError = null,
             )

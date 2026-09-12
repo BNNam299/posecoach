@@ -43,7 +43,7 @@ class PerspectiveTest {
 
     private fun measurement(vararg pairs: Pair<PerspectiveSource, Double>) = PoseMeasurement(
         framing = FramingClass.FULL,
-        scale = 0.60, centerX = 0.5, elevationDeg = 0.0,
+        scale = 0.60, centerX = 0.5, tiltDeg = 0.0, elevationDeg = 0.0,
         yawDeg = 0.0, faceYawDeg = null, eyesOpen = null,
         rollDeg = emptyMap(), pitchCue = emptyMap(),
         anchorHeightMeters = 1.60,

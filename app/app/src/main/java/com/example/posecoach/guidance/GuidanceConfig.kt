@@ -65,13 +65,60 @@ object GuidanceConfig {
     private const val UNLOCK_FACTOR = 3.0
 
     /**
+     * BẢNG NGƯỠNG THEO LỚP KHUNG HÌNH — lấy nguyên từ tài liệu v3 mục 5.
+     *
+     * Lý do đổi theo lớp, trích tài liệu:
+     *
+     * | Mục | Vì sao |
+     * |---|---|
+     * | Hướng mẫu | chân dung dùng face yaw, sai số 3-5° thay vì 8-10° → siết được |
+     * | Xa gần | khung càng chặt, lệch tỉ lệ càng lộ |
+     * | Cao thấp | chân dung nhạy với góc nhìn hơn nhiều |
+     * | Trái phải | khung chặt, lệch tâm lộ rõ |
+     *
+     * ⚠️ Trước đây dùng MỘT ngưỡng cho cả 5 lớp. Tài liệu v3 gọi thẳng đó là lỗi:
+     * *"actionFloor mục 2 = 0,35m cho mọi lớp — SAI cho chân dung, 35cm là đổi
+     * khung hoàn toàn"*.
+     *
+     * `null` = mục này không đổi theo lớp, rơi xuống bảng chung bên dưới.
+     */
+    private fun theoLop(criterion: Criterion, f: FramingClass): Double? = when (criterion) {
+        Criterion.YAW -> when (f) {
+            FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 30.0
+            FramingClass.CHEST -> 20.0
+            FramingClass.HEAD -> 15.0
+        }
+        Criterion.SCALE -> when (f) {
+            FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 0.10
+            FramingClass.CHEST -> 0.08
+            FramingClass.HEAD -> 0.06
+        }
+        // ĐỘ — mục 3 giờ là góc nhìn thật, xem `measureElevationDeg`.
+        Criterion.ELEVATION -> when (f) {
+            FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 6.0
+            FramingClass.CHEST -> 4.0
+            FramingClass.HEAD -> 3.0
+        }
+        Criterion.CENTER -> when (f) {
+            FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 0.05
+            FramingClass.CHEST -> 0.04
+            FramingClass.HEAD -> 0.03
+        }
+        else -> null
+    }
+
+    /**
      * Ngưỡng ĐẠT của từng mục, theo ĐÚNG đơn vị mà tầng đo đạc trả về.
      *
      * ⚠️ Đơn vị ở đây **không giống** đơn vị trong `NGUONG_VA_GOC_QUY_CHIEU.md` ở
      * hai mục, và đó là chủ ý — xem ghi chú từng dòng. Quy đổi sai đơn vị là loại
      * lỗi không bao giờ lộ ra: số vẫn chạy, tích vẫn hiện, chỉ là hiện sai lúc.
      */
-    private fun acceptFor(criterion: Criterion, templateScale: Double?): Double? = when (criterion) {
+    private fun acceptFor(
+        criterion: Criterion,
+        framing: FramingClass,
+        templateScale: Double?,
+    ): Double? = theoLop(criterion, framing) ?: when (criterion) {
 
         // Độ. Khớp trực tiếp với tài liệu (30 độ).
         // Rộng vì phép đo suy từ tỉ lệ vai/thân vốn sai số 8-10 độ; siết chặt hơn
@@ -142,7 +189,17 @@ object GuidanceConfig {
         //
         // Nghiêng ngang là mục DỄ THẤY NHẤT bằng mắt: lệch 3° đã nhận ra, trong khi
         // lệch 3% khoảng cách thì không ai để ý.
-        Criterion.ROLL -> 3.0
+        // ⚠️ NỚI TỪ 3,0 LÊN 6,0 (12/09/2026).
+        //
+        // 3,0° đo được từ nhiễu tripod (0,92°) và đúng theo quy tắc accept ≥ 3σ.
+        // Nhưng nhiễu của TAY CẦM khác hẳn nhiễu của tripod — tay người luôn vẹo
+        // 1-3°, nên mục này gần như không bao giờ tự tắt. Video test thật cho
+        // thấy câu nhắc của nó chiếm 7/9 tới 9/11 khung hình.
+        //
+        // Tài liệu gốc còn quyết liệt hơn: *"Máy vẹo: bỏ qua, không hướng dẫn.
+        // Ảnh xuất ra nếu vẹo dưới 3° thì tự nắn thẳng."* PO muốn giữ mục này,
+        // nên giải pháp là NỚI + xuống cuối thứ tự, thay vì bỏ hẳn.
+        Criterion.ROLL -> 6.0
 
         // ⚠️ ĐÂY LÀ NGƯỠNG DUY NHẤT TRONG FILE NÀY ĐÃ ĐO TRÊN ẢNH THẬT.
         //
@@ -175,12 +232,23 @@ object GuidanceConfig {
      *
      * Lấy từ cột `actionFloor` của tài liệu, quy đổi cùng cách với `accept`.
      */
-    private fun actionFloorFor(criterion: Criterion, templateScale: Double?): Double =
+    private fun actionFloorFor(
+        criterion: Criterion,
+        framing: FramingClass,
+        templateScale: Double?,
+    ): Double =
         when (criterion) {
             Criterion.YAW -> 15.0
             // Tài liệu ghi sàn theo mét (0,35 m). Ta không biết mẫu cao bao nhiêu
             // mét nên giữ nguyên đơn vị tỉ lệ: 5% là mức nhỏ nhất mắt thường thấy.
-            Criterion.SCALE -> 0.05
+            // Sàn theo lớp. Tài liệu v3: 0,35m / 0,30m / 0,12m / 0,08m. Ta giữ
+            // đơn vị tỉ lệ nên quy về phần chiều cao mẫu.
+            Criterion.SCALE -> when (framing) {
+                FramingClass.FULL, FramingClass.KNEE -> 0.05
+                FramingClass.HALF -> 0.045
+                FramingClass.CHEST -> 0.03
+                FramingClass.HEAD -> 0.02
+            }
             Criterion.CENTER -> 0.02
             // Độ. Dưới mức này thì nâng hay hạ máy cũng không ai thấy ảnh khác đi.
             Criterion.ELEVATION -> 4.0
@@ -208,6 +276,17 @@ object GuidanceConfig {
      * mặt. Mọi ảnh CHÂN DUNG dùng ngưỡng đó sẽ thấy mục này nhấp nháy đạt/không
      * đạt liên tục dù người cầm máy đứng yên hoàn toàn.
      */
+    /**
+     * NGƯỠNG MỤC 4 khi đo bằng TRỤC THÂN 3D — đơn vị ĐỘ.
+     *
+     * Tài liệu v3 ghi 5° cho lớp toàn thân. Dùng thẳng con số đó: đây là đường
+     * đo duy nhất của mục 4 ra được độ, nên lần đầu tiên ngưỡng của tài liệu áp
+     * được mà không phải quy đổi.
+     *
+     * ⚠️ Vẫn cần buổi đo tripod chốt lại theo quy tắc số 3 (accept ≥ 3σ).
+     */
+    const val PITCH_SPINE_ACCEPT_DEG = 5.0
+
     const val PITCH_FACE_ACCEPT = 0.31
 
     /**
@@ -219,7 +298,7 @@ object GuidanceConfig {
      */
     fun bandFor(
         criterion: Criterion,
-        @Suppress("UNUSED_PARAMETER") framing: FramingClass,
+        framing: FramingClass,
         templateScale: Double?,
         /**
          * Đường đo đã dùng cho mục NGỬA/CHÚC. Bỏ trống với mọi mục khác.
@@ -228,17 +307,19 @@ object GuidanceConfig {
          */
         pitchSource: PitchSource? = null,
     ): Band? {
-        val base = acceptFor(criterion, templateScale) ?: return null
-        val accept = if (criterion == Criterion.PITCH && pitchSource == PitchSource.FACE) {
-            PITCH_FACE_ACCEPT
-        } else {
-            base
+        val base = acceptFor(criterion, framing, templateScale) ?: return null
+        // Mục 4 có ba đường đo với BA ĐƠN VỊ khác nhau, nên mỗi đường một ngưỡng.
+        val accept = when {
+            criterion != Criterion.PITCH -> base
+            pitchSource == PitchSource.SPINE_3D -> PITCH_SPINE_ACCEPT_DEG
+            pitchSource == PitchSource.FACE -> PITCH_FACE_ACCEPT
+            else -> base
         }
         return Band(
             accept = accept,
             enter = accept * ENTER_FACTOR,
             unlock = accept * UNLOCK_FACTOR,
-            actionFloor = actionFloorFor(criterion, templateScale),
+            actionFloor = actionFloorFor(criterion, framing, templateScale),
         )
     }
 }

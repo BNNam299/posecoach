@@ -1,6 +1,7 @@
 package com.example.posecoach
 
 import com.example.posecoach.measure.Measurer
+import com.example.posecoach.measure.PitchSource
 import com.example.posecoach.measure.ShotScorer
 import com.example.posecoach.pose.FramingClass
 import com.example.posecoach.pose.Lm
@@ -82,7 +83,12 @@ class GocMayTest {
         )
     }
 
+    /** Mục 4 — độ nghiêng trục ống kính. KHÔNG được đổi theo bố cục. */
     private fun goc(f: PoseFrame) =
+        Measurer.measure(f, FramingClass.FULL, minVis).tiltDeg
+
+    /** Mục 3 — góc nhìn tới mốc. CÓ đổi theo bố cục, đó là chủ ý. */
+    private fun nhin(f: PoseFrame) =
         Measurer.measure(f, FramingClass.FULL, minVis).elevationDeg
 
     // =================================================================
@@ -122,7 +128,7 @@ class GocMayTest {
      * Chỉ số cũ nhảy loạn ở đây. Chỉ số mới phải đứng yên.
      */
     @Test
-    fun `doi KHOANG CACH va VI TRI TRONG KHUNG thi goc KHONG duoc doi`() {
+    fun `doi KHOANG CACH va VI TRI TRONG KHUNG thi DO NGHIENG KHONG duoc doi`() {
         val chuan = goc(nguoi(-25.0, coTrongKhung = 0.5, dayKhung = 0.5))!!
         val laiGan = goc(nguoi(-25.0, coTrongKhung = 0.9, dayKhung = 0.5))!!
         val luiXa = goc(nguoi(-25.0, coTrongKhung = 0.25, dayKhung = 0.5))!!
@@ -141,7 +147,7 @@ class GocMayTest {
     }
 
     @Test
-    fun `anh mau bi CAT CUP thi goc van khong doi`() {
+    fun `anh mau bi CAT CUP thi DO NGHIENG van khong doi`() {
         // Cắt cúp = đổi cả cỡ mẫu lẫn vị trí trong khung cùng lúc. Ảnh mẫu tải
         // từ mạng gần như luôn đã bị cắt (đo 12/09/2026: 0/13 ảnh mẫu còn EXIF
         // máy ảnh), nên đây không phải ca hiếm.
@@ -164,7 +170,7 @@ class GocMayTest {
             Lm.LEFT_SHOULDER to Triple(P2(0.75, 0.80), 0.99f, P3(0.18, -0.45, 0.0)),
             Lm.RIGHT_SHOULDER to Triple(P2(0.25, 0.80), 0.99f, P3(-0.18, -0.45, 0.0)),
         )
-        assertNull(Measurer.measure(chanDung, FramingClass.CHEST, minVis).elevationDeg)
+        assertNull(Measurer.measure(chanDung, FramingClass.CHEST, minVis).tiltDeg)
     }
 
     @Test
@@ -177,7 +183,7 @@ class GocMayTest {
             Lm.LEFT_HIP to Triple(P2(0.55, 1.09), 0.99f, P3(0.11, 0.0, 0.0)),
             Lm.RIGHT_HIP to Triple(P2(0.45, 1.12), 0.99f, P3(-0.11, 0.0, 0.0)),
         )
-        assertNull(Measurer.measure(hongNgoaiKhung, FramingClass.FULL, minVis).elevationDeg)
+        assertNull(Measurer.measure(hongNgoaiKhung, FramingClass.FULL, minVis).tiltDeg)
     }
 
     // =================================================================
@@ -189,16 +195,19 @@ class GocMayTest {
         val tpl = Measurer.measure(nguoi(-35.0), FramingClass.FULL, minVis)
         // Cùng góc máy nhưng đứng xa hơn hẳn và lệch khung — vẫn phải ĐẠT.
         val live = Measurer.measure(nguoi(-35.0, 0.3, 0.65), FramingClass.FULL, minVis)
-        val dev = ShotScorer.deviation(tpl, live).elevationDeg
-        assertNotNull(dev)
-        assertTrue("Cùng góc máy thì lệch phải ~0, đo được $dev", dev!! < 1.0)
+        val d = ShotScorer.deviation(tpl, live)
+        assertEquals(PitchSource.SPINE_3D, d.pitchSource)
+        assertNotNull(d.pitchCue)
+        assertTrue("Cùng độ nghiêng thì lệch phải ~0, đo được ${d.pitchCue}", d.pitchCue!! < 1.0)
     }
 
     @Test
     fun `sai goc may thi bao dung so do lech`() {
         val tpl = Measurer.measure(nguoi(-40.0), FramingClass.FULL, minVis)
         val live = Measurer.measure(nguoi(-10.0), FramingClass.FULL, minVis)
-        assertEquals(30.0, ShotScorer.deviation(tpl, live).elevationDeg!!, 1.5)
+        val d = ShotScorer.deviation(tpl, live)
+        assertEquals(PitchSource.SPINE_3D, d.pitchSource)
+        assertEquals(30.0, d.pitchCue!!, 1.5)
     }
 
     @Test
@@ -209,6 +218,55 @@ class GocMayTest {
             Lm.RIGHT_SHOULDER to Triple(P2(0.42, 0.30), 0.99f, P3(-0.18, -0.45, 0.0)),
         )
         val live = Measurer.measure(khongThayHong, FramingClass.FULL, minVis)
-        assertNull(ShotScorer.deviation(tpl, live).elevationDeg)
+        assertNull(ShotScorer.deviation(tpl, live).pitchCue)
+    }
+
+    // =================================================================
+    // MỤC 3 — GÓC NHÌN. Đại lượng KHÁC mục 4, và có phụ thuộc bố cục.
+    // =================================================================
+
+    @Test
+    fun `goc nhin bang do nghieng khi moc nam GIUA khung`() {
+        // elevation = tilt + (0,5 − y) × vFOV. Mốc ở giữa thì số hạng sau bằng 0.
+        val f = nguoi(-20.0, coTrongKhung = 0.5, dayKhung = 0.5)
+        val m = Measurer.measure(f, FramingClass.FULL, minVis)
+        // mốc của FULL là giữa hông, ở bộ dữ liệu này nằm hơi dưới giữa khung
+        assertEquals(m.tiltDeg!!, m.elevationDeg!!, 12.0)
+    }
+
+    @Test
+    fun `HAI DAI LUONG DOC LAP - cung do nghieng nhung khac goc nhin`() {
+        // ⚠️ Đây là lý do tài liệu gọi chúng là "hai phương trình độc lập".
+        // Đo trên ảnh mẫu thật: NGOI-ghe-giua-dong và nam-nen-trang-tay-tui có
+        // y_hông gần bằng nhau (0,515 / 0,556) mà độ nghiêng lệch 36°.
+        val a = nguoi(-20.0, dayKhung = 0.30)
+        val b = nguoi(-20.0, dayKhung = 0.70)
+        assertEquals("Độ nghiêng phải giống nhau", goc(a)!!, goc(b)!!, 0.5)
+        assertTrue(
+            "Góc nhìn phải KHÁC nhau — mẫu nằm cao thấp khác nhau trong khung " +
+                "nghĩa là máy đặt ở độ cao khác nhau",
+            kotlin.math.abs(nhin(a)!! - nhin(b)!!) > 10.0,
+        )
+    }
+
+    @Test
+    fun `mau nam THAP trong khung thi goc nhin NGANG len`() {
+        // Mẫu tụt xuống dưới khung = tia từ máy tới mẫu chúc xuống nhiều hơn
+        // = máy đang cao hơn. Dấu phải phản ánh đúng chiều đó.
+        val cao = nhin(nguoi(0.0, dayKhung = 0.25))!!
+        val thap = nhin(nguoi(0.0, dayKhung = 0.75))!!
+        assertTrue("mẫu cao trong khung: $cao, mẫu thấp: $thap", cao > thap)
+    }
+
+    @Test
+    fun `khong thay hong thi khong co ca hai`() {
+        val chanDung = frameOf(
+            Lm.NOSE to Triple(P2(0.50, 0.35), 0.99f, P3(0.0, -0.60, 0.0)),
+            Lm.LEFT_SHOULDER to Triple(P2(0.75, 0.80), 0.99f, P3(0.18, -0.45, 0.0)),
+            Lm.RIGHT_SHOULDER to Triple(P2(0.25, 0.80), 0.99f, P3(-0.18, -0.45, 0.0)),
+        )
+        val m = Measurer.measure(chanDung, FramingClass.CHEST, minVis)
+        assertNull(m.tiltDeg)
+        assertNull(m.elevationDeg)
     }
 }

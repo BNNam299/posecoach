@@ -68,23 +68,33 @@ enum class Criterion(
      */
     val groupLabel: String = "",
 ) {
+    // =================================================================
+    // ⚠️ THỨ TỰ KHAI BÁO Ở ĐÂY LÀ THỨ TỰ KIỂM VÀ THỨ TỰ NHẮC.
+    //
+    // `GuidanceEngine` sắp mục theo `ordinal`, nên đổi chỗ ở đây là đổi thứ tự
+    // hướng dẫn. Sắp theo đúng tài liệu "Thứ tự kiểm khi camera đang mở":
+    //
+    //     1 hướng mẫu -> 2 xa/gần -> 3 máy cao/thấp -> 4 ngửa/chúc
+    //     -> 5 trái/phải -> 6 dáng
+    //
+    // Lý do của thứ tự, trích tài liệu: *"Tiến/lùi làm đổi luôn kích thước mẫu
+    // trong khung. Nâng/hạ máy làm đổi luôn góc ngửa/chúc cần thiết. Ngửa/chúc
+    // làm mẫu trôi lên xuống trong khung. Nếu làm ngược thứ tự, bước sau sẽ phá
+    // bước trước và người chụp phải làm lại mãi."*
+    //
+    // ⚠️ TRƯỚC 12/09/2026 `ROLL` ĐỨNG ĐẦU. Hậu quả đo được trên video test thật:
+    // câu "đứng thẳng người lại, đang hơi ngả sang trái" chiếm 7/9 tới 9/11
+    // khung hình, bịt kín kênh hướng dẫn — vì mỗi lúc app chỉ hiện MỘT câu.
+    // Tay người luôn vẹo 1-3° nên mục này gần như không bao giờ tự tắt.
+    // Nay xuống cuối: vẫn có tích, vẫn chấm điểm, nhưng chỉ lên tiếng khi 6 mục
+    // kia đã xong.
+    // =================================================================
 
-    // --- Các mục về VỊ TRÍ ĐẶT MÁY: dùng ở cả hai chỗ ---
 
-    /**
-     * MỤC 8 — NGHIÊNG NGANG (vẹo chân trời).
-     *
-     * ⚠️ ĐẶT ĐẦU TIÊN CÓ CHỦ Ý. Máy nghiêng thì trục ngang và trục dọc CỦA ẢNH
-     * không còn trùng với trái/phải và trên/dưới của thế giới thật — mà mục
-     * [CENTER] và [ELEVATION] đo đúng theo hai trục đó. Sửa nghiêng trước thì hai
-     * mục kia mới sạch; sửa sau thì vừa chỉnh xong lại lệch lại.
-     *
-     * Trước đây app chỉ kiểm DỌC hay NGANG — một phép nhị phân 90°. Cầm máy vẹo
-     * 25° vẫn lọt, trong khi ảnh ra đã nghiêng thấy rõ.
-     *
-     * [reference] 25°: quá mức này thì bức ảnh nghiêng tới mức hỏng hẳn.
-     */
-    ROLL("nghieng_ngang", "Máy nghiêng", 2.5, 25.0),
+
+
+    /** Tiêu chí cuối cùng và nhẹ nhất theo quyết định sản phẩm — không bao giờ chặn việc chụp. */
+    YAW("huong", "Hướng mẫu", 3.0, 55.0),
 
     /**
      * MỤC 7 — ZOOM & KHOẢNG CÁCH.
@@ -104,7 +114,6 @@ enum class Criterion(
      */
     PERSPECTIVE("zoom_khoangcach", "Chỗ đứng", 1.5, 0.30, groupLabel = "Khoảng cách & khung hình"),
     SCALE("xa_gan", "Khung hình", 3.0, 0.30, groupLabel = "Khoảng cách & khung hình"),
-    CENTER("trai_phai", "Lệch trái/phải", 2.5, 0.22),
     ELEVATION("cao_thap", "Máy cao/thấp", 2.5, 35.0),
 
     /**
@@ -119,12 +128,25 @@ enum class Criterion(
      * buổi đo.
      */
     PITCH("ngua_chuc", "Máy ngửa/chúc", 2.0, 0.35),
-
-
-
-    /** Tiêu chí cuối cùng và nhẹ nhất theo quyết định sản phẩm — không bao giờ chặn việc chụp. */
-    YAW("huong", "Hướng mẫu", 3.0, 55.0),
+    CENTER("trai_phai", "Lệch trái/phải", 2.5, 0.22),
     POSE("dang", "Dáng tay chân", 1.0, 55.0),
+
+    // --- Các mục về VỊ TRÍ ĐẶT MÁY: dùng ở cả hai chỗ ---
+
+    /**
+     * MỤC 8 — NGHIÊNG NGANG (vẹo chân trời).
+     *
+     * ⚠️ ĐẶT ĐẦU TIÊN CÓ CHỦ Ý. Máy nghiêng thì trục ngang và trục dọc CỦA ẢNH
+     * không còn trùng với trái/phải và trên/dưới của thế giới thật — mà mục
+     * [CENTER] và [ELEVATION] đo đúng theo hai trục đó. Sửa nghiêng trước thì hai
+     * mục kia mới sạch; sửa sau thì vừa chỉnh xong lại lệch lại.
+     *
+     * Trước đây app chỉ kiểm DỌC hay NGANG — một phép nhị phân 90°. Cầm máy vẹo
+     * 25° vẫn lọt, trong khi ảnh ra đã nghiêng thấy rõ.
+     *
+     * [reference] 25°: quá mức này thì bức ảnh nghiêng tới mức hỏng hẳn.
+     */
+    ROLL("nghieng_ngang", "Máy nghiêng", 2.5, 25.0),
 
     // --- HẬU KỲ: chỉ chấm khi chọn ảnh, KHÔNG đưa vào hướng dẫn ---
 

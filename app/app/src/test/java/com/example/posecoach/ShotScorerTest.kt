@@ -39,6 +39,7 @@ class ShotScorerTest {
         framing = FramingClass.FULL,
         scale = scale,
         centerX = centerX,
+        tiltDeg = 0.0,
         elevationDeg = elevationDeg,
         yawDeg = yawDeg,
         faceYawDeg = faceYawDeg,

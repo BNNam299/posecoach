@@ -387,9 +387,19 @@ internal fun cueTextFor(status: CriterionStatus): String {
         //
         // Nói cả hai động tác trong một câu, vì người cầm máy làm chúng cùng lúc:
         // giơ lên mà không chúc xuống thì mẫu tụt khỏi khung ngay.
+        // MỤC 3 — GÓC NHÌN từ máy tới mốc trên cơ thể, đơn vị ĐỘ.
+        //
+        //     elevation = độ_nghiêng_máy + (0,5 − y_mốc) × vFOV
+        //
+        // Âm = tia chúc xuống, máy đang CAO hơn mốc. `signed` = live trừ mẫu.
+        // signed > 0 nghĩa là tia của ta đang ngẩng hơn ảnh mẫu → máy đang THẤP
+        // hơn cần thiết → phải nâng lên.
+        //
+        // ⚠️ Nói ĐỘ CAO ĐẶT MÁY, không nói "chúc/hất" — phần chúc là mục 4, mục
+        // riêng. Trộn hai thứ vào một câu chính là lỗi FOOTGUNS 62.
         Criterion.ELEVATION -> when {
-            signed > 0 -> "Giơ máy cao hơn rồi chúc xuống, đến khi tích sáng"
-            else -> "Hạ máy thấp xuống rồi hất lên, đến khi tích sáng"
+            signed > 0 -> "Nâng máy lên cao hơn, đến khi tích sáng"
+            else -> "Hạ máy xuống thấp hơn, đến khi tích sáng"
         }
 
         // pitchCue dương = máy đang hất lên.

@@ -41,6 +41,26 @@ enum class FramingClass(val displayName: String) {
             CHEST, HEAD -> ScaleAnchor.FACE_HEIGHT
         }
 
+    /**
+     * Điểm mốc đo GÓC NHÌN của máy (mục 3 — máy cao/thấp).
+     *
+     * ⚠️ Mốc này KHÔNG phải phép đo — nó là một số hạng trong công thức góc:
+     *
+     *     elevation = độ_nghiêng_máy + (0,5 − y_mốc) × vFOV
+     *
+     * Bản trước đây lấy thẳng `y_mốc` làm phép đo và gọi đó là "máy cao/thấp".
+     * Sai: `y` là BỐ CỤC, thiếu hai số hạng kia thì nó nhạy với khoảng cách hơn
+     * cả với độ cao máy (đo 12/09/2026: 0,058 so với 0,041). Xem FOOTGUNS 62.
+     *
+     * Nhưng vứt luôn cái mốc đi cũng sai — `y` là một nửa của phương trình.
+     */
+    val elevationAnchor: ElevationAnchor
+        get() = when (this) {
+            FULL, KNEE -> ElevationAnchor.MID_HIP
+            HALF -> ElevationAnchor.MID_TORSO
+            CHEST, HEAD -> ElevationAnchor.EYE_LINE
+        }
+
     /** Điểm mốc đo lệch trái/phải (mục 5). */
     val centerAnchor: CenterAnchor
         get() = when (this) {
@@ -123,6 +143,13 @@ enum class FramingClass(val displayName: String) {
 }
 
 enum class ScaleAnchor { HEAD_TO_ANKLE, HEAD_TO_KNEE, HEAD_TO_HIP, FACE_HEIGHT }
+
+/** Điểm mốc tính góc nhìn của máy. Nhãn dùng cho câu giải thích khi bỏ mục. */
+enum class ElevationAnchor(val cueLabel: String) {
+    MID_HIP("ngang hông mẫu"),
+    MID_TORSO("ngang thân mẫu"),
+    EYE_LINE("ngang mắt mẫu"),
+}
 
 enum class CenterAnchor { TORSO_CENTER, SHOULDER_CENTER, FACE_CENTER }
 enum class YawSource { BODY_3D, FACE_YAW }

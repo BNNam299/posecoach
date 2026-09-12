@@ -3,6 +3,7 @@ package com.example.posecoach.measure
 import com.example.posecoach.face.FaceInfo
 import com.example.posecoach.pose.Box
 import com.example.posecoach.pose.CenterAnchor
+import com.example.posecoach.pose.ElevationAnchor
 import com.example.posecoach.pose.FramingClass
 import com.example.posecoach.pose.Lm
 import com.example.posecoach.pose.P2
@@ -86,7 +87,19 @@ enum class RollSource {
  * camera đo bằng MẶT. Phép trừ vẫn ra số trông hợp lệ nên không ai thấy sai.
  */
 enum class PitchSource {
-    /** Chân so với thân. Mạnh nhất, nhưng cần thấy chân VÀ chân không chĩa vào ống kính. */
+    /**
+     * TRỤC THÂN 3D — đơn vị ĐỘ. Đường mạnh nhất, xếp đầu nên được ưu tiên.
+     *
+     * Kiểm 12/09/2026: tương quan −0,700 với `R` (đường [LEGS]), tức cùng đo một
+     * đại lượng. Nhưng ăn đứt ở dáng ngồi — ảnh ngồi ghế chụp ngửa cho `R = 1,05`
+     * lẫn với ảnh đứng thẳng, còn đường này cho +39,7°.
+     *
+     * ⚠️ Đơn vị ĐỘ, khác hẳn hai đường dưới (tỉ lệ không đơn vị). Ngưỡng riêng
+     * trong `GuidanceConfig`.
+     */
+    SPINE_3D,
+
+    /** Chân so với thân. Mạnh nhưng cần thấy chân VÀ chân không chĩa vào ống kính. */
     LEGS,
 
     /** Khung mặt so với bề rộng vai. Yếu hơn nhưng luôn có, kể cả ảnh chân dung và dáng ngồi. */
@@ -114,6 +127,34 @@ data class PoseMeasurement(
      *
      * Nâng máy lên cao thì mẫu tụt xuống thấp trong khung — nên chính con số này
      * là dấu vết của độ cao đặt máy.
+     */
+    /**
+     * ĐỘ NGHIÊNG CỦA TRỤC ỐNG KÍNH so với phương thẳng đứng — **mục 4**, đơn vị ĐỘ.
+     *
+     * Âm = máy chúc xuống. Dương = máy hất lên. 0 = trục ống kính nằm ngang.
+     *
+     * Suy từ trục thân trong khung xương 3D. Kiểm 12/09/2026: tương quan −0,700
+     * với công thức `R` mà tài liệu gốc dùng cho mục này — tức cùng đo một đại
+     * lượng. Nhưng ăn đứt `R` ở dáng ngồi: ảnh ngồi ghế chụp ngửa cho `R = 1,05`
+     * (lẫn với ảnh đứng thẳng) trong khi phép này cho **+39,7°**, tách rõ. Đúng
+     * chỗ tài liệu tự nhận là *"mắt xích yếu nhất"*.
+     *
+     * `null` khi không thấy hông — chân dung lùi về tín hiệu khuôn mặt trong
+     * [pitchCue].
+     */
+    val tiltDeg: Double?,
+
+    /**
+     * GÓC NHÌN TỪ MÁY TỚI MỐC TRÊN CƠ THỂ — **mục 3**, đơn vị ĐỘ.
+     *
+     *     elevation = tiltDeg + (0,5 − y_mốc) × vFOV
+     *
+     * Âm = tia chúc xuống, máy CAO hơn mốc. Dương = máy THẤP hơn.
+     *
+     * ⚠️ Đây là đại lượng KHÁC [tiltDeg], không thừa. Đo trên ảnh mẫu thật:
+     * `NGOI-ghe-giua-dong` và `nam-nen-trang-tay-tui` có y_hông gần bằng nhau
+     * (0,515 so với 0,556) nhưng độ nghiêng lệch **36°**. Hai phương trình độc
+     * lập, cùng nhau xác định đủ cả độ cao máy lẫn độ chúc.
      */
     val elevationDeg: Double?,
 
@@ -212,6 +253,21 @@ data class PoseMeasurement(
 object Measurer {
 
     /**
+     * GÓC MỞ DỌC GIẢ ĐỊNH CHO ẢNH MẪU, độ.
+     *
+     * Ảnh mẫu là JPEG trần: không tiêu cự, không EXIF (đo 12/09/2026: 0/13 ảnh
+     * mẫu cài sẵn còn EXIF máy ảnh). Phải đoán.
+     *
+     * 65° là góc dọc của ống kính chính điện thoại phổ thông ở khung 4:3
+     * (tương đương ~26mm). Ảnh mẫu tải từ mạng gần như luôn chụp bằng điện thoại.
+     *
+     * ⚠️ Đoán sai bao nhiêu thì hại bấy nhiêu — nhưng có chặn trên: số hạng
+     * `(0,5 − y) × vFOV` tỉ lệ với khoảng cách từ mốc tới GIỮA khung. Mốc nằm
+     * giữa khung thì đoán sai bao nhiêu cũng không ảnh hưởng.
+     */
+    const val VFOV_ANH_MAU = 65.0
+
+    /**
      * Góc chĩa vào ống kính tối đa mà một đoạn cơ thể còn dùng để đo được, ĐỘ.
      *
      * Đo từ 19 ảnh có khoảng cách bằng thước: đoạn hông→gót của người ĐỨNG bình
@@ -233,10 +289,19 @@ object Measurer {
         minVisibility: Float,
         /** Số liệu khuôn mặt, `null` khi chưa chạy hoặc không thấy mặt. */
         face: FaceInfo? = null,
+        /**
+         * Góc mở DỌC của ống kính, độ. Cần cho mục 3.
+         *
+         * Camera thật đọc được từ phần cứng. Ảnh mẫu thì không có — dùng
+         * [VFOV_ANH_MAU]. Sai số do đoán có chặn trên: mốc càng gần giữa khung
+         * thì số hạng `(0,5 − y) × vFOV` càng nhỏ, ở y = 0,2 thì đoán lệch 10°
+         * chỉ gây sai 3°.
+         */
+        vFovDeg: Double = VFOV_ANH_MAU,
     ): PoseMeasurement {
         if (frame.isEmpty) {
             return PoseMeasurement(
-                framing, null, null, null, null, null, null, null,
+                framing, null, null, null, null, null, null, null, null,
                 emptyMap(), emptyMap(), emptyMap(), emptyMap(),
             )
         }
@@ -244,7 +309,8 @@ object Measurer {
             framing = framing,
             scale = measureScale(frame, framing.scaleAnchor, minVisibility),
             centerX = measureCenterX(frame, framing.centerAnchor, minVisibility),
-            elevationDeg = measureElevationDeg(frame, minVisibility),
+            tiltDeg = measureTiltDeg(frame, minVisibility),
+            elevationDeg = measureElevationDeg(frame, framing, minVisibility, vFovDeg),
             yawDeg = frame.bodyYawDeg(minVisibility),
             faceYawDeg = face?.yawDeg,
             eyesOpen = face?.eyesOpen,
@@ -406,7 +472,7 @@ object Measurer {
      * góc — và với ảnh chân dung, góc giữa MẶT và ống kính mới đúng là thứ nhìn
      * thấy được. Không đo được thì bỏ ra, không đoán (quy tắc số 4).
      */
-    private fun measureElevationDeg(f: PoseFrame, v: Float): Double? {
+    private fun measureTiltDeg(f: PoseFrame, v: Float): Double? {
         // Đòi cả 2D lẫn 3D: `at()` lọc điểm nằm NGOÀI khung mà MediaPipe vẫn tự
         // tin bịa ra. Thiếu bước này thì hông ở ngoài khung vẫn cho ra một góc.
         if (f.at(Lm.LEFT_HIP, v) == null && f.at(Lm.RIGHT_HIP, v) == null) return null
@@ -424,6 +490,42 @@ object Measurer {
         // y của MediaPipe hướng XUỐNG, nên -dy là "lên trên".
         return Math.toDegrees(kotlin.math.atan2(dz, -dy))
     }
+
+    /**
+     * Mục 3 — góc nhìn từ máy tới mốc. Xem [PoseMeasurement.elevationDeg].
+     *
+     * Cần [measureTiltDeg] chạy được, tức là **phải thấy hông**. Ảnh chân dung
+     * không có trục thân nên mục này bị bỏ (quy tắc số 4). Đã thử lấy trục
+     * cổ→đầu thay thế và loại: tương quan 0,287, độ lệch chuẩn 23,9° — đầu gật
+     * tự do nên nó bám tư thế đầu chứ không bám máy (FOOTGUNS 66).
+     */
+    private fun measureElevationDeg(
+        f: PoseFrame,
+        framing: FramingClass,
+        v: Float,
+        vFovDeg: Double,
+    ): Double? {
+        val tilt = measureTiltDeg(f, v) ?: return null
+        val y = anchorY(f, framing.elevationAnchor, v) ?: return null
+        return tilt + (0.5 - y) * vFovDeg
+    }
+
+    /** Toạ độ dọc của mốc trên khung. Một số hạng của mục 3, không phải phép đo. */
+    private fun anchorY(f: PoseFrame, anchor: ElevationAnchor, v: Float): Double? =
+        when (anchor) {
+            ElevationAnchor.MID_HIP -> f.root(v)?.y
+            ElevationAnchor.MID_TORSO -> {
+                val neck = f.neck(v); val root = f.root(v)
+                if (neck != null && root != null) (neck.y + root.y) / 2.0 else null
+            }
+            ElevationAnchor.EYE_LINE -> {
+                val le = f.at(Lm.LEFT_EYE, v); val re = f.at(Lm.RIGHT_EYE, v)
+                when {
+                    le != null && re != null -> (le.y + re.y) / 2.0
+                    else -> (le ?: re)?.y ?: f.at(Lm.NOSE, v)?.y
+                }
+            }
+        }
 
     private fun midP3(a: P3?, b: P3?): P3? = when {
         a != null && b != null -> P3((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2)
@@ -568,7 +670,10 @@ object Measurer {
 
     private fun measurePitchCue(f: PoseFrame, v: Float): Map<PitchSource, Double> =
         buildMap {
-            // Cách 1 — CHÂN so với THÂN. Mạnh nhất, nhưng bỏ khi chân chĩa vào ống kính.
+            // Cách 0 — TRỤC THÂN 3D, ra thẳng ĐỘ. Đặt đầu vì `pitchDeviation`
+            // duyệt theo thứ tự khai báo, nên đây thành đường ưu tiên.
+            measureTiltDeg(f, v)?.let { put(PitchSource.SPINE_3D, it) }
+            // Cách 1 — CHÂN so với THÂN. Mạnh, nhưng bỏ khi chân chĩa vào ống kính.
             if (segmentUsable(f, v, Lm.LEFT_HIP, Lm.RIGHT_HIP, Lm.LEFT_ANKLE, Lm.RIGHT_ANKLE)) {
                 legsOverTorso(f, v)?.let { put(PitchSource.LEGS, it) }
             }

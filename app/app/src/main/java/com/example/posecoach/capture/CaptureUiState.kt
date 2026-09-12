@@ -56,21 +56,6 @@ data class CaptureUiState(
     /** Anh mau la anh doc hay ngang. `null` = chua biet. */
     val templatePortrait: Boolean? = null,
 
-    /**
-     * Kieu chan dung nguoi dung chon: dung gan hay dung xa.
-     *
-     * Chi co nghia khi [KieuChanDung.canHoi] tra ve true. Xem file do de biet
-     * vi sao phai hoi nguoi dung thay vi tu do.
-     */
-    val kieuChanDung: com.example.posecoach.guidance.KieuChanDung =
-        com.example.posecoach.guidance.KieuChanDung.MAC_DINH,
-
-    /**
-     * Muc zoom app dang GHIM. `null` = khong ghim, nguoi dung zoom tu do.
-     *
-     * Ghim de "co mau trong khung" xac dinh duoc khoang cach mot-doi-mot.
-     */
-    val ghimZoom: Float? = null,
 
     // --- Camera ---
     val cameraReady: Boolean = false,
