@@ -99,6 +99,13 @@ object GuidanceConfig {
             FramingClass.CHEST -> 4.0
             FramingClass.HEAD -> 3.0
         }
+        // Mục 4 giờ ra ĐỘ ở cả hai đường chính (trục thân và góc mặt), nên lần
+        // đầu tiên ngưỡng của tài liệu áp thẳng được mà không phải quy đổi.
+        Criterion.PITCH -> when (f) {
+            FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 5.0
+            FramingClass.CHEST -> 4.0
+            FramingClass.HEAD -> 3.0
+        }
         Criterion.CENTER -> when (f) {
             FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 0.05
             FramingClass.CHEST -> 0.04
@@ -276,7 +283,11 @@ object GuidanceConfig {
      * mặt. Mọi ảnh CHÂN DUNG dùng ngưỡng đó sẽ thấy mục này nhấp nháy đạt/không
      * đạt liên tục dù người cầm máy đứng yên hoàn toàn.
      */
+    /** Ngưỡng mục 4 khi đo bằng ĐƯỜNG CHÂN — tỉ lệ không đơn vị, giữ từ bản cũ. */
+    const val PITCH_LEGS_ACCEPT = 0.105
+
     /**
+     * (không còn dùng — giữ lại để đối chiếu lịch sử)
      * NGƯỠNG MỤC 4 khi đo bằng TRỤC THÂN 3D — đơn vị ĐỘ.
      *
      * Tài liệu v3 ghi 5° cho lớp toàn thân. Dùng thẳng con số đó: đây là đường
@@ -309,10 +320,11 @@ object GuidanceConfig {
     ): Band? {
         val base = acceptFor(criterion, framing, templateScale) ?: return null
         // Mục 4 có ba đường đo với BA ĐƠN VỊ khác nhau, nên mỗi đường một ngưỡng.
+        // Mục 4 có ba đường đo. Hai đường ra ĐỘ thì dùng chung bảng theo lớp;
+        // riêng đường CHÂN vẫn là tỉ lệ không đơn vị nên giữ ngưỡng riêng.
         val accept = when {
             criterion != Criterion.PITCH -> base
-            pitchSource == PitchSource.SPINE_3D -> PITCH_SPINE_ACCEPT_DEG
-            pitchSource == PitchSource.FACE -> PITCH_FACE_ACCEPT
+            pitchSource == PitchSource.LEGS -> PITCH_LEGS_ACCEPT
             else -> base
         }
         return Band(

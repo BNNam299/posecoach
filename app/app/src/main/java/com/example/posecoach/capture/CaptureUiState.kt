@@ -53,6 +53,15 @@ data class CaptureUiState(
      */
     val criteria: List<CriterionStatus> = emptyList(),
 
+    /**
+     * ⚠️ TẠM — số đo góc mặt hiện lên màn hình để buổi test trả lời dứt điểm.
+     *
+     * `headEulerAngleX` của ML Kit chưa từng được kiểm bằng số (ML Kit không chạy
+     * ngoài máy Android). Chĩa máy từ trên xuống rồi từ dưới lên: số này phải chạy
+     * đúng chiều và đủ biên độ. Xác nhận xong thì GỠ dòng này.
+     */
+    val debugFacePitchDeg: Double? = null,
+
     /** Anh mau la anh doc hay ngang. `null` = chua biet. */
     val templatePortrait: Boolean? = null,
 

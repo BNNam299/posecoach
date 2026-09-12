@@ -92,6 +92,25 @@ class CaptureViewModel : ViewModel() {
     private var vFovDeg: Double? = null
 
     /**
+     * Số liệu khuôn mặt mới nhất từ đường thời gian thực, kèm mốc thời gian.
+     *
+     * Nhận diện khuôn mặt chạy THƯA hơn nhịp khung hình (xem màn chụp), nên phải
+     * giữ lại giá trị gần nhất. Quá cũ thì bỏ — thà không đo còn hơn đo bằng số
+     * liệu của hai giây trước.
+     */
+    private var liveFace: FaceInfo? = null
+    private var liveFaceAtMs = 0L
+
+    /**
+     * Số liệu khuôn mặt cũ hơn mức này thì coi như không có.
+     *
+     * 600ms: nhận diện khuôn mặt chạy ~3 lần/giây nên giá trị mới nhất luôn dưới
+     * mốc này khi mọi thứ bình thường. Vượt qua nghĩa là máy đang nghẽn hoặc mẫu
+     * đã quay mặt đi — cả hai đều phải bỏ mục đó ra chứ không dùng số cũ.
+     */
+    private val FACE_TOI_DA_MS = 600L
+
+    /**
      * Chế độ chụp. Đổi HAI thứ: câu chữ (ai cầm máy) và việc lật khung xương
      * (ảnh gương). Xem [ShootMode].
      */
@@ -121,6 +140,8 @@ class CaptureViewModel : ViewModel() {
         devicePitchDeg = null
         zoomRatio = 1f
         vFovDeg = null
+        liveFace = null
+        liveFaceAtMs = 0L
         // ⚠️ GIỮ LẠI hai lựa chọn của người dùng. Xoá chúng thì bật công tắc xong
         // màn hình phân tích lại ảnh mẫu, `startFresh` chạy, công tắc tự tắt —
         // người dùng bấm mãi không được.
@@ -160,6 +181,13 @@ class CaptureViewModel : ViewModel() {
     /** Màn chụp đẩy góc mở ống kính đọc từ phần cứng vào. */
     fun onVerticalFovChanged(deg: Double?) {
         vFovDeg = deg
+    }
+
+    /** Màn chụp đẩy số liệu khuôn mặt vừa nhận diện được vào. */
+    fun onLiveFace(info: FaceInfo?) {
+        liveFace = info
+        liveFaceAtMs = android.os.SystemClock.elapsedRealtime()
+        _state.update { it.copy(debugFacePitchDeg = info?.pitchDeg) }
     }
 
     fun onZoomChanged(ratio: Float) {
@@ -267,6 +295,9 @@ class CaptureViewModel : ViewModel() {
         val live = if (detected && profile != null) {
             Measurer.measure(
                 frame, profile.framing, minVisibility,
+                face = liveFace.takeIf {
+                    android.os.SystemClock.elapsedRealtime() - liveFaceAtMs < FACE_TOI_DA_MS
+                },
                 vFovDeg = vFovDeg ?: Measurer.VFOV_ANH_MAU,
             )
         } else null

@@ -31,6 +31,21 @@ class PoseDetector(
     /** Gọi mỗi khi có kết quả. Chạy trên luồng nền của MediaPipe, KHÔNG phải luồng giao diện. */
     private val onResult: (PoseFrame, InferenceStats) -> Unit,
     private val onError: (String) -> Unit,
+    /**
+     * Khung hình ĐÃ XOAY ĐÚNG CHIỀU, để nơi khác dùng lại.
+     *
+     * Hiện chỉ dùng cho nhận diện khuôn mặt thời gian thực: ảnh chân dung lấy
+     * hướng mẫu và góc ngửa/chúc từ khuôn mặt, mà trước ngày 12/09/2026 dữ liệu
+     * khuôn mặt **chưa hề vào đường thời gian thực** — nên template selfie gần
+     * như không có hướng dẫn nào.
+     *
+     * ⚠️ Dùng lại đúng tấm bitmap này thay vì giải mã lần nữa: giải mã và xoay là
+     * phần đắt nhất của vòng lặp, làm hai lần là tự cắt đôi tốc độ khung hình.
+     *
+     * ⚠️ Chạy trên LUỒNG CAMERA. Bên nhận phải trả về ngay và đẩy việc nặng sang
+     * luồng khác, nếu không camera nghẽn.
+     */
+    private val onFrameBitmap: ((android.graphics.Bitmap) -> Unit)? = null,
 ) {
 
     data class Config(
@@ -164,6 +179,8 @@ class PoseDetector(
             val mpImage = BitmapImageBuilder(rotated).build()
             lm.detectAsync(mpImage, sentAtMs)
         }
+
+        onFrameBitmap?.invoke(rotated)
     }
 
     private fun handleResult(result: PoseLandmarkerResult, @Suppress("UNUSED_PARAMETER") input: Any?) {

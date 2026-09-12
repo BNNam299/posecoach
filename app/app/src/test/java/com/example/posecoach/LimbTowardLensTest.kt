@@ -131,7 +131,7 @@ class LimbTowardLensTest {
         val tpl = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
             .copy(pitchCue = mapOf(PitchSource.LEGS to 0.20))
         val live = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
-            .copy(pitchCue = mapOf(PitchSource.FACE to 0.20))
+            .copy(pitchCue = mapOf(PitchSource.FACE_3D to 0.20))
 
         assertNull(
             "Hai con số thuộc hai thang khác hẳn nhau (nhiễu 0,016 so với 0,104). " +
@@ -143,18 +143,18 @@ class LimbTowardLensTest {
     @Test
     fun `cung duong do thi so binh thuong`() {
         val tpl = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
-            .copy(pitchCue = mapOf(PitchSource.FACE to 0.20))
+            .copy(pitchCue = mapOf(PitchSource.FACE_3D to 0.20))
         val live = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
-            .copy(pitchCue = mapOf(PitchSource.FACE to 0.50))
+            .copy(pitchCue = mapOf(PitchSource.FACE_3D to 0.50))
 
         val dev = ShotScorer.deviation(tpl, live)
         assertEquals(0.30, dev.pitchCue!!, 1e-9)
-        assertEquals(PitchSource.FACE, dev.pitchSource)
+        assertEquals(PitchSource.FACE_3D, dev.pitchSource)
     }
 
     @Test
     fun `co ca hai duong do thi uu tien duong CHAN vi it nhieu hon`() {
-        val both = mapOf(PitchSource.LEGS to 0.10, PitchSource.FACE to 0.90)
+        val both = mapOf(PitchSource.LEGS to 0.10, PitchSource.FACE_3D to 0.90)
         val tpl = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis).copy(pitchCue = both)
         val live = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis).copy(pitchCue = both)
         assertEquals(PitchSource.LEGS, ShotScorer.deviation(tpl, live).pitchSource)
@@ -165,20 +165,51 @@ class LimbTowardLensTest {
     // =================================================================
 
     @Test
-    fun `duong do bang mat phai co nguong RONG HON duong do bang chan`() {
+    fun `moi duong do mot don vi, moi don vi mot nguong`() {
+        // Mục 4 có ba đường đo với ba đơn vị. Trộn ngưỡng giữa chúng là loại lỗi
+        // không bao giờ lộ ra: số vẫn chạy, tích vẫn hiện, chỉ là hiện sai lúc.
         val legs = GuidanceConfig.bandFor(
             Criterion.PITCH, FramingClass.FULL, 0.60, PitchSource.LEGS,
         )!!
-        val face = GuidanceConfig.bandFor(
-            Criterion.PITCH, FramingClass.FULL, 0.60, PitchSource.FACE,
+        val than = GuidanceConfig.bandFor(
+            Criterion.PITCH, FramingClass.FULL, 0.60, PitchSource.SPINE_3D,
+        )!!
+        val mat = GuidanceConfig.bandFor(
+            Criterion.PITCH, FramingClass.CHEST, 0.60, PitchSource.FACE_3D,
         )!!
 
-        assertEquals(0.105, legs.accept, 1e-9)
-        assertEquals(GuidanceConfig.PITCH_FACE_ACCEPT, face.accept, 1e-9)
+        // Đường CHÂN là tỉ lệ không đơn vị — giữ ngưỡng cũ.
+        assertEquals(GuidanceConfig.PITCH_LEGS_ACCEPT, legs.accept, 1e-9)
+        // Hai đường kia ra ĐỘ, nên lần đầu tiên ngưỡng của tài liệu v3 áp thẳng
+        // được: 5° cho lớp thấy chân, 4° cho bán thân, 3° cho chân dung cận.
+        assertEquals(5.0, than.accept, 1e-9)
+        assertEquals(4.0, mat.accept, 1e-9)
+    }
+
+    /**
+     * ⚠️ ĐƯỜNG ĐO `faceOverShoulders` ĐÃ BỊ GỠ 12/09/2026 — đừng dựng lại.
+     *
+     * Nó là tỉ lệ khung-mặt trên bề-ngang-vai, từng là đường duy nhất chạy được
+     * với ảnh chân dung. Nhưng đo trên 10 ảnh mẫu có góc thật đã biết:
+     *
+     * ```
+     * tương quan với góc thật : −0,117      <- nhiễu thuần
+     * ```
+     *
+     * Và tệ hơn: ngưỡng của nó là 0,31 trong khi ba ảnh selfie chỉ trải từ −0,134
+     * tới 0,329 — tức nó **gần như luôn báo xanh**. Tiêu chí có mặt, có dấu tích,
+     * nhưng công nhận mọi thứ. Đó là lý do PO chọn template selfie thì không thấy
+     * hướng dẫn nào.
+     *
+     * Thay bằng `headEulerAngleX` của ML Kit — bộ ước lượng huấn luyện riêng cho
+     * việc này, ra thẳng độ.
+     */
+    @Test
+    fun `khong con duong do bang ti le khung mat tren vai`() {
         assertTrue(
-            "Nhiễu của đường đo bằng mặt là 0,104 — ngưỡng 0,105 nhỏ hơn cả nhiễu, " +
-                "tích sẽ nhấp nháy suốt dù người cầm máy đứng yên",
-            face.accept > legs.accept * 2.5,
+            "PitchSource chỉ được có ba đường: trục thân, chân, và góc mặt",
+            PitchSource.entries.map { it.name }.toSet() ==
+                setOf("SPINE_3D", "LEGS", "FACE_3D"),
         )
     }
 

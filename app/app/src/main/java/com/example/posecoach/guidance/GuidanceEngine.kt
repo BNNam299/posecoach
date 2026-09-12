@@ -222,12 +222,33 @@ class GuidanceEngine(private val profile: TemplateProfile) {
 
         // --- Chọn các mục đáng nhắc ---
         val failing = statuses
-            .filter { it.state == GateState.FAILING }
-            // Sàn hành động: lệch ít tới mức không ai sửa nổi thì im.
             .filter { s ->
-                val d = s.deviation ?: return@filter false
-                val b = s.band ?: return@filter false
-                d - b.accept >= b.actionFloor
+                when (s.state) {
+                    GateState.FAILING -> {
+                        // Sàn hành động: lệch ít tới mức không ai sửa nổi thì im.
+                        val d = s.deviation
+                        val b = s.band
+                        d != null && b != null && d - b.accept >= b.actionFloor
+                    }
+
+                    // ⚠️ MỤC KHÔNG ĐO ĐƯỢC QUÁ LÂU CŨNG PHẢI ĐƯỢC NÓI (12/09/2026).
+                    //
+                    // Trước đây danh sách này chỉ lấy `FAILING`, nên nhánh
+                    // `unmeasuredTooLong` trong `CuePresenter` **chưa bao giờ chạy
+                    // được** — mã chết suốt từ lúc viết.
+                    //
+                    // Lỗi nằm im vì một đường đo khác (`faceOverShoulders`) vô tình
+                    // làm mục ngửa/chúc luôn đo được, nên chưa gặp ca nào rơi vào
+                    // đây. Gỡ đường đo đó đi là ngõ cụt im lặng quay lại ngay —
+                    // `SilentDeadlockTest` bắt được.
+                    //
+                    // Câu ở đây KHÁC hẳn câu sửa lỗi: không bảo "tiến 2 bước" (app
+                    // đâu biết lệch bao nhiêu), mà nói app đang thiếu gì và làm sao
+                    // cho nó nhìn thấy.
+                    GateState.UNMEASURED -> s.unmeasuredTooLong
+
+                    else -> false
+                }
             }
             .sortedBy { it.criterion.ordinal }
 
@@ -298,7 +319,20 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         // Cầm máy trên tay thì luôn có một hai mục dao động quanh ngưỡng. Nhắc sửa
         // tiếp lúc này chỉ làm người dùng loay hoay và bỏ lỡ khoảnh khắc — trong khi
         // bức ảnh đã đủ giống ảnh mẫu rồi.
-        val readyToPose = match != null && match >= READY_PERCENT
+        // ⚠️ CÒN MỤC CHƯA ĐO ĐƯỢC THÌ KHÔNG BAO GIỜ "SẴN SÀNG" (12/09/2026).
+        //
+        // Điểm số cố tình BỎ RA các mục không đo được rồi chia lại trọng số (quy
+        // tắc số 4). Hệ quả ngoài ý muốn: khung hình lệch hẳn tới mức app không
+        // đo nổi bốn mục lại cho điểm CAO — vì chỉ còn chấm mấy mục dễ.
+        //
+        // Rồi `readyToPose` bật, câu nhắc chuyển sang chỉ nói về dáng, mà dáng thì
+        // đang đạt → danh sách rỗng → **app im lặng hoàn toàn**. Đúng ngõ cụt
+        // ngày 04/09/2026, quay lại bằng một đường khác.
+        //
+        // "Sẵn sàng" phải có nghĩa là *app đã nhìn đủ và mọi thứ đều đạt*, chứ
+        // không phải *app không nhìn thấy gì để chê*.
+        val readyToPose = match != null && match >= READY_PERCENT &&
+            stuckUnmeasured.isEmpty()
 
         // Cầm máy sai thì mọi phép đo phía sau đều vô nghĩa — nói đúng một việc đó.
         // ⚠️ ĐỦ GIỐNG RỒI THÌ CHUYỂN SANG NHẮC DÁNG, KHÔNG PHẢI IM LẶNG.

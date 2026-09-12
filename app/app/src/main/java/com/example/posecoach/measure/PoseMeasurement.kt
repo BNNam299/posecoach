@@ -102,8 +102,15 @@ enum class PitchSource {
     /** Chân so với thân. Mạnh nhưng cần thấy chân VÀ chân không chĩa vào ống kính. */
     LEGS,
 
-    /** Khung mặt so với bề rộng vai. Yếu hơn nhưng luôn có, kể cả ảnh chân dung và dáng ngồi. */
-    FACE,
+    /**
+     * GÓC MẶT so với ống kính, từ ML Kit — đơn vị ĐỘ. Đường duy nhất cho chân dung.
+     *
+     * ⚠️ Thay cho đường `faceOverShoulders` cũ, đã ĐO VÀ LOẠI ngày 12/09/2026:
+     * tương quan với góc thật chỉ **−0,117**, và ngưỡng 0,31 của nó rộng hơn cả
+     * dải giá trị của ba ảnh selfie (−0,134 tới 0,329) nên nó **gần như luôn báo
+     * xanh**. Tiêu chí có dấu tích nhưng công nhận mọi thứ.
+     */
+    FACE_3D,
 }
 
 data class PoseMeasurement(
@@ -316,7 +323,7 @@ object Measurer {
             eyesOpen = face?.eyesOpen,
             anchorHeightMeters = measureAnchorHeight(frame, framing, minVisibility),
             rollDeg = measureRoll(frame, minVisibility),
-            pitchCue = measurePitchCue(frame, minVisibility),
+            pitchCue = measurePitchCue(frame, minVisibility, face),
             perspectiveIndex = measurePerspective(frame, minVisibility),
             poseAngles = measurePose(frame, framing.poseGroups, minVisibility),
         )
@@ -668,7 +675,11 @@ object Measurer {
      */
     private const val MIN_SHOULDER_SPAN = 0.03
 
-    private fun measurePitchCue(f: PoseFrame, v: Float): Map<PitchSource, Double> =
+    private fun measurePitchCue(
+        f: PoseFrame,
+        v: Float,
+        face: FaceInfo?,
+    ): Map<PitchSource, Double> =
         buildMap {
             // Cách 0 — TRỤC THÂN 3D, ra thẳng ĐỘ. Đặt đầu vì `pitchDeviation`
             // duyệt theo thứ tự khai báo, nên đây thành đường ưu tiên.
@@ -677,9 +688,9 @@ object Measurer {
             if (segmentUsable(f, v, Lm.LEFT_HIP, Lm.RIGHT_HIP, Lm.LEFT_ANKLE, Lm.RIGHT_ANKLE)) {
                 legsOverTorso(f, v)?.let { put(PitchSource.LEGS, it) }
             }
-            // Cách 2 — KHUNG MẶT so với BỀ RỘNG VAI. Chỉ dùng đầu và thân nên
-            // KHÔNG bao giờ bị dáng tay chân làm hỏng.
-            faceOverShoulders(f, v)?.let { put(PitchSource.FACE, it) }
+            // Cách 2 — GÓC MẶT từ ML Kit, ra thẳng ĐỘ. Đường duy nhất chạy được
+            // với ảnh chân dung (không thấy hông thì hai cách trên đều tắt).
+            face?.pitchDeg?.let { put(PitchSource.FACE_3D, it) }
         }
 
     /** Cách 1 — dựa vào chân. Chính xác hơn vì hai đoạn cách xa nhau theo chiều sâu. */
@@ -711,34 +722,6 @@ object Measurer {
      * Chúc máy xuống thì đầu gần ống kính hơn vai → mặt trông to ra so với vai.
      * Nên phải **ĐẢO DẤU** để cùng quy ước với cách 1 (dương = hất lên).
      */
-    private fun faceOverShoulders(f: PoseFrame, v: Float): Double? {
-        val face = faceBox(f, v) ?: return null
-        val ls = f.at(Lm.LEFT_SHOULDER, v) ?: return null
-        val rs = f.at(Lm.RIGHT_SHOULDER, v) ?: return null
-        val span2 = hypot(rs.x - ls.x, rs.y - ls.y)
-        if (face.height < 1e-4 || span2 < 1e-4) return null
-
-        var minY = Double.MAX_VALUE
-        var maxY = -Double.MAX_VALUE
-        var found = false
-        for (i in Lm.NOSE..Lm.MOUTH_RIGHT) {
-            val w = f.world(i, v) ?: continue
-            found = true
-            if (w.y < minY) minY = w.y
-            if (w.y > maxY) maxY = w.y
-        }
-        if (!found) return null
-        val face3 = maxY - minY
-
-        val lsW = f.world(Lm.LEFT_SHOULDER, v) ?: return null
-        val rsW = f.world(Lm.RIGHT_SHOULDER, v) ?: return null
-        val span3 = hypot(rsW.x - lsW.x, rsW.y - lsW.y)
-        if (face3 < 1e-4 || span3 < 1e-4) return null
-
-        return -ln((face.height / span2) / (face3 / span3))
-    }
-
-    /** Trung điểm hai điểm trong không gian thật, trả (x, y). */
     private fun midWorld(f: PoseFrame, a: Int, b: Int, v: Float): Pair<Double, Double>? {
         val pa = f.world(a, v) ?: return null
         val pb = f.world(b, v) ?: return null

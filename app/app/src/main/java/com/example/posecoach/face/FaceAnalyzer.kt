@@ -24,6 +24,42 @@ data class FaceInfo(
     val yawDeg: Double?,
 
     /**
+     * Góc mặt NGỬA/CHÚC so với ống kính, ĐỘ. Dương = mặt đang ngẩng lên.
+     *
+     * ## Vì sao cần
+     *
+     * Đây là đường đo DUY NHẤT còn lại cho mục 4 với ảnh chân dung. Hai đường
+     * khác đã đo và loại ngày 12/09/2026:
+     *
+     * | Đường đo | Tương quan với góc thật |
+     * |---|---|
+     * | `faceOverShoulders` (khung mặt / bề ngang vai) | **−0,117** |
+     * | Đường tai so với đường mắt (điểm MediaPipe) | **+0,128** |
+     *
+     * Cả hai là nhiễu. Tệ hơn, `faceOverShoulders` có ngưỡng 0,31 trong khi ba ảnh
+     * selfie chỉ trải từ −0,134 tới 0,329 — tức gần như **luôn báo xanh**. Tiêu chí
+     * có mặt, có dấu tích, nhưng công nhận mọi thứ. Hỏng kiểu nói dối tự tin.
+     *
+     * ## Vì sao cái này có cửa
+     *
+     * Nó là bộ ước lượng **được huấn luyện riêng cho việc này**, không phải tỉ lệ
+     * ghép từ vài điểm rời rạc.
+     *
+     * Và nó đo **góc giữa MẶT và ỐNG KÍNH** — đúng thứ nhìn thấy được trong ảnh
+     * chân dung. Nó không tách được "giơ máy cao lên" với "cúi đầu xuống", nhưng
+     * với ảnh chân dung thì **hai thứ đó cho ra cùng một tấm ảnh**, nên không cần
+     * tách.
+     *
+     * ⚠️ CHƯA KIỂM CHỨNG BẰNG SỐ. ML Kit là thư viện Android, không chạy được
+     * ngoài máy nên không dò trước bằng Python như mọi phép đo khác của dự án.
+     * Buổi test trên máy thật phải trả lời: chĩa máy từ trên xuống rồi từ dưới
+     * lên, số này có chạy đúng chiều và đủ biên độ không.
+     *
+     * ⚠️ CHỈ CÓ Ở CHẾ ĐỘ ACCURATE của ML Kit — xem ghi chú ở phần dựng bộ nhận diện.
+     */
+    val pitchDeg: Double?,
+
+    /**
      * Mắt có mở không, 0..1. Lấy **giá trị NHỎ HƠN** của hai mắt.
      *
      * Lấy nhỏ hơn là cố ý: nhắm một mắt cũng là ảnh hỏng. Lấy trung bình sẽ cho
@@ -51,10 +87,17 @@ class FaceAnalyzer {
 
     private val detector: FaceDetector = FaceDetection.getClient(
         FaceDetectorOptions.Builder()
-            // FAST đủ dùng: ta chỉ cần góc quay đầu và xác suất mắt mở, không cần
-            // 468 điểm lưới mặt. ACCURATE chậm hơn nhiều mà không thêm gì cho hai
-            // con số này.
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            // ⚠️ ĐỔI TỪ FAST SANG ACCURATE 12/09/2026 — bắt buộc, không phải tuỳ chọn.
+            //
+            // `headEulerAngleX` (góc ngửa/chúc của mặt) **chỉ có ở chế độ ACCURATE**.
+            // `headEulerAngleY` và `Z` thì chế độ nào cũng có, nên trước đây FAST là
+            // đủ. Giờ mục 4 với ảnh chân dung phụ thuộc hẳn vào X.
+            //
+            // Giá phải trả là tốc độ. Với ảnh mẫu thì không sao (phân tích một lần),
+            // nhưng đường camera thì phải **đo trên máy thật** xem có tụt dưới mức
+            // 8-10 khung/giây của dự án không. Nếu tụt thì giảm nhịp gọi chứ đừng
+            // quay về FAST — quay về là mất hẳn mục 4 cho chân dung.
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
             .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
             .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
             .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
@@ -78,6 +121,7 @@ class FaceAnalyzer {
         val face = faces.maxByOrNull { it.boundingBox.width() * it.boundingBox.height() }
         if (face == null) null else FaceInfo(
             yawDeg = face.headEulerAngleY.toDouble(),
+            pitchDeg = face.headEulerAngleX.toDouble(),
             eyesOpen = run {
                 val l = face.leftEyeOpenProbability
                 val r = face.rightEyeOpenProbability

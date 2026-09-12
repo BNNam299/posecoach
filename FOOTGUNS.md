@@ -2081,3 +2081,76 @@ về"*.
 ⚠️ Hậu quả không chỉ là một câu nhắc sai: `DeviceRotation` còn đặt `targetRotation`
 cho luồng nhận diện. Lật nhầm là **toàn bộ khung xương xoay 90°** mà không có gì
 báo lỗi (cùng họ với FOOTGUNS 10).
+
+---
+
+## 70. Mục ngửa/chúc cho chân dung từng đo NHIỄU mà vẫn báo xanh
+
+**Sai:** `faceOverShoulders` — tỉ lệ khung-mặt trên bề-ngang-vai — làm đường đo
+mục 4 cho ảnh chân dung.
+
+**Đúng:** `headEulerAngleX` của ML Kit, ra thẳng ĐỘ.
+
+**Vì sao:** đo trên 10 ảnh mẫu có góc thật đã biết (12/09/2026):
+
+```
+tương quan faceOverShoulders <-> góc thật : −0,117
+```
+
+Nhiễu thuần. Ví dụ rõ nhất: `kinh-ram-tai-nghe` chụp chúc xuống −52,8° cho 0,448,
+còn `NGOI-goc-cay` gần như ngang tầm (−4,5°) lại cho **0,597** — cao hơn.
+
+Và tệ hơn nhiễu: ngưỡng của nó là **0,31** trong khi cả ba ảnh selfie chỉ trải từ
+−0,134 tới 0,329, nên nó **gần như luôn báo xanh**. Tiêu chí có mặt, có dấu tích,
+nhưng công nhận mọi thứ — hỏng kiểu **nói dối tự tin**, tệ hơn im lặng.
+
+⚠️ `headEulerAngleX` **chỉ có ở chế độ `PERFORMANCE_MODE_ACCURATE`**. Đổi FAST →
+ACCURATE là bắt buộc, không phải tuỳ chọn. Nếu tốc độ khung hình tụt thì giảm
+NHỊP GỌI (hiện 300ms/lần) chứ đừng quay về FAST — quay về là mất hẳn mục 4 cho
+chân dung.
+
+---
+
+## 71. Dữ liệu khuôn mặt chưa từng vào đường thời gian thực
+
+**Sai:** chỉ chạy `FaceAnalyzer` lúc phân tích ảnh mẫu và lúc chấm điểm sau khi
+quay.
+
+**Đúng:** chạy cả trong vòng lặp camera, ở nhịp thưa hơn nhịp khung hình.
+
+**Vì sao:** bảng mốc đo quy định lớp CHEST/HEAD lấy **hướng mẫu** và **ngửa/chúc**
+từ khuôn mặt. Thiếu dữ liệu khuôn mặt ở phía camera thì hai mục đó không đo được
+ở một bên, luật "chỉ so khi cùng đường đo" bỏ chúng ra, và **template selfie gần
+như không còn hướng dẫn nào**.
+
+Ba điều bắt buộc khi nối:
+1. Dùng lại **đúng tấm bitmap** mà `PoseDetector` đã xoay — giải mã và xoay là
+   phần đắt nhất của vòng lặp, làm hai lần là tự cắt đôi tốc độ khung hình.
+2. Có cờ **đang chạy** để hai lần nhận diện không chồng lên nhau — thiếu nó thì
+   hàng đợi phình ra và độ trễ tích luỹ đến vài giây.
+3. Số liệu **quá cũ thì bỏ** (600ms) — thà không đo còn hơn đo bằng số của hai
+   giây trước.
+
+---
+
+## 72. "Sẵn sàng" không được tính khi còn mục chưa đo được
+
+**Sai:** `readyToPose = match >= READY_PERCENT`.
+
+**Đúng:** `readyToPose = match >= READY_PERCENT && stuckUnmeasured.isEmpty()`.
+
+**Vì sao:** điểm số cố tình **bỏ ra** các mục không đo được rồi chia lại trọng số
+(quy tắc số 4). Hệ quả ngoài ý muốn: khung hình lệch tới mức app không đo nổi bốn
+mục lại cho điểm **cao**, vì chỉ còn chấm mấy mục dễ.
+
+Rồi `readyToPose` bật → câu nhắc chuyển sang chỉ nói về dáng → dáng đang đạt →
+danh sách rỗng → **app im lặng hoàn toàn**. Đúng ngõ cụt ngày 04/09/2026, quay
+lại bằng một đường khác.
+
+"Sẵn sàng" phải có nghĩa là *app đã nhìn đủ và mọi thứ đều đạt*, không phải *app
+không nhìn thấy gì để chê*.
+
+⚠️ Cùng lỗi này còn làm nhánh `unmeasuredTooLong` trong `CuePresenter` thành **mã
+chết** — danh sách ứng viên câu nhắc chỉ lấy `FAILING`, không bao giờ lấy
+`UNMEASURED`. Nó nằm im suốt vì `faceOverShoulders` vô tình làm mục 4 luôn đo
+được; gỡ đường đo đó đi là lộ ra ngay.

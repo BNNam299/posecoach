@@ -74,6 +74,15 @@ import androidx.compose.ui.text.style.TextAlign
 private const val MIN_VIS = 0.5f
 
 /**
+ * Nhịp chạy nhận diện khuôn mặt thời gian thực, mili-giây.
+ *
+ * ML Kit chế độ ACCURATE đắt hơn nhiều FAST, gọi mỗi khung là tự cắt đôi tốc độ.
+ * 300ms (~3 lần/giây) đủ cho một khuôn mặt — đầu người không đổi hướng nhanh hơn
+ * thế, và ngưỡng "quá cũ" phía ViewModel để 600ms nên vẫn luôn có số tươi.
+ */
+private const val FACE_NHIP_MS = 300L
+
+/**
  * Khoảng cách giữa hai khung đem đi chấm điểm.
  *
  * ⚠️ VÌ SAO 250ms CHỨ KHÔNG PHẢI 100ms: bộ giữ khung bắt buộc hai ảnh được giữ
@@ -250,10 +259,45 @@ fun CaptureScreen(
     DisposableEffect(hasPermission) {
         if (!hasPermission) return@DisposableEffect onDispose { }
 
+        // NHAN DIEN KHUON MAT THOI GIAN THUC.
+        //
+        // ⚠️ Truoc 12/09/2026 du lieu khuon mat CHUA HE vao duong nay - no chi
+        // chay luc phan tich anh mau va luc cham diem sau khi quay. Nen voi anh
+        // mau chan dung, ca huong mau (face yaw) lan goc ngua/chuc (face pitch)
+        // deu khong do duoc o phia camera, va tieu chi bi bo. Do la ly do PO chon
+        // template selfie thi gan nhu khong co huong dan nao.
+        val faceLive = FaceAnalyzer()
+        var faceDangChay = false
+        var faceLanCuoiMs = 0L
+
         val detector = PoseDetector(
             context = context,
             onResult = { frame, stats -> vm.onLiveFrame(frame, stats, MIN_VIS) },
             onError = { msg -> vm.onCameraError(msg) },
+            onFrameBitmap = { bmp ->
+                // Chay THUA hon nhip khung hinh, va KHONG BAO GIO chong lan nhau.
+                //
+                // ML Kit che do ACCURATE dat hon nhieu che do FAST, goi moi khung
+                // la tu cat doi toc do. 300ms (~3 lan/giay) du cho mot khuon mat -
+                // dau nguoi khong doi huong nhanh hon the.
+                //
+                // Co `faceDangChay` vi lan chay truoc co the chua xong: khong co no
+                // thi hang doi cong viec phinh ra va do tre tich luy den vai giay.
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (!faceDangChay && now - faceLanCuoiMs >= FACE_NHIP_MS) {
+                    faceDangChay = true
+                    faceLanCuoiMs = now
+                    // Bitmap goc bi dung lai o vong sau, phai sao ra truoc khi roi
+                    // luong camera.
+                    val sao = bmp.copy(bmp.config ?: android.graphics.Bitmap.Config.ARGB_8888, false)
+                    scope.launch(Dispatchers.Default) {
+                        val info = runCatching { faceLive.analyze(sao) }.getOrNull()
+                        sao.recycle()
+                        withContext(Dispatchers.Main) { vm.onLiveFace(info) }
+                        faceDangChay = false
+                    }
+                }
+            },
         )
         detector.setup()
 
@@ -272,6 +316,7 @@ fun CaptureScreen(
             // sẽ sập ở tầng C++ (FOOTGUNS mục 11).
             c.stop()
             detector.close()
+            faceLive.close()
             controller = null
         }
     }
@@ -530,6 +575,16 @@ fun CaptureScreen(
                         },
                     )
                     Spacer(Modifier.height(12.dp))
+                }
+                // ⚠️ TẠM — xem `CaptureUiState.debugFacePitchDeg`. Gỡ sau khi
+                // buổi test xác nhận `headEulerAngleX` chạy đúng chiều.
+                state.debugFacePitchDeg?.let { g ->
+                    Text(
+                        "góc mặt %+.0f°".format(g),
+                        color = Color(0xCCFFFFFF), fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(bottom = 4.dp),
+                    )
                 }
                 state.templateError?.let {
                     Text(
