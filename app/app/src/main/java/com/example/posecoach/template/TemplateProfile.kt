@@ -297,7 +297,24 @@ data class TemplateProfile(
             /** Số liệu khuôn mặt của ẢNH MẪU. `null` = không thấy mặt hoặc chưa chạy. */
             face: FaceInfo? = null,
         ): TemplateProfile {
-            val m = Measurer.measure(frame, framing, minVisibility, face)
+            val doDuoc = Measurer.measure(frame, framing, minVisibility, face)
+
+            // ⚠️ GHI ĐÈ ĐÍCH BỐ CỤC — chỗ quan trọng nhất của cả thiết kế này.
+            //
+            // Ảnh mẫu nói gì về vị trí chủ thể trong khung thì BỎ QUA, thay bằng
+            // luật. Lý do: đo 12/09/2026 cho thấy ít nhất 8/13 ảnh mẫu đã bị cắt
+            // cúp (0/13 còn EXIF máy ảnh), nên vị trí đó là quyết định của người
+            // ngồi cắt ảnh chứ không phải của người bấm máy.
+            //
+            // Ghi đè ở đúng một chỗ này thì mọi tầng phía sau — chấm điểm, cổng
+            // trễ, sinh câu nhắc — chạy nguyên như cũ mà không biết gì cả.
+            //
+            // Bất biến số 1 vẫn nguyên: ảnh mẫu và khung camera vẫn đi qua đúng
+            // cùng một hàm đo. Chỗ thay đổi là ĐÍCH để so, không phải PHÉP đo.
+            val m = doDuoc.copy(
+                centerX = doDuoc.centerX?.let { BoCuc.TAM_NGANG },
+                eyeY = doDuoc.eyeY?.let { BoCuc.duongMatY(framing) },
+            )
             val active = mutableSetOf<Criterion>()
             val skipped = linkedMapOf<Criterion, String>()
 

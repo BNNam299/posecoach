@@ -1907,35 +1907,7 @@ luận nào ở giữa để mà sai. Xem `measureElevationDeg` và `GocMayTest`
 
 ---
 
-## 66. Không thấy hông thì ĐỪNG lấy trục cổ→đầu thay cho trục thân
-
-**Sai:** ảnh chân dung không thấy hông, nên dùng vector vai→mũi làm trục thân để vẫn
-đo được góc máy.
-
-**Đúng:** trả về `null`. Không đo được thì bỏ mục đó ra và chia lại trọng số
-(quy tắc số 4).
-
-**Vì sao:** đo ngày 12/09/2026 trên 18 ảnh, so hai đường:
-
-```
-tương quan giữa trục thân và trục cổ→đầu :  0,287
-độ lệch chuẩn của phần chênh             : 23,9°
-ca tệ nhất (NGOI-ghe-giua-dong)          : trục thân +39,7°  so với  cổ→đầu −40,1°
-```
-
-Ngược hẳn dấu. Lý do: **đầu gật tự do**. Trục cổ→đầu bám tư thế đầu chứ không bám vị
-trí máy — đúng cùng một bệnh đã khiến mục "chỗ đứng" bị loại khỏi ảnh chân dung.
-
-Nó nguy hiểm vì trông rất hợp lý và **ổn định trong cùng một buổi chụp** (5 ảnh cùng
-buổi chỉ lệch 7,1°), nên thử nhanh sẽ tưởng là chạy được. Chỉ lộ khi so ảnh mẫu với
-người khác có tư thế đầu khác.
-
-Với ảnh chân dung thì mục **ngửa/chúc** (đo từ khuôn mặt) gánh phần thông tin góc — và
-với chân dung, góc giữa MẶT và ống kính mới đúng là thứ nhìn thấy được.
-
----
-
-## 63. Khung camera phải theo TỈ LỆ ẢNH MẪU, nếu không toạ độ không so được
+## 63. Camera, phép đo và ảnh lưu phải dùng CHUNG một tỉ lệ khung
 
 **Sai:** để CameraX dùng tỉ lệ mặc định của cảm biến (4:3), rồi so toạ độ khớp với
 ảnh mẫu có tỉ lệ khác.
@@ -1958,6 +1930,28 @@ template"*.
 
 ⚠️ **Ba chỗ phải khớp nhau.** Lệch một chỗ thì người dùng canh theo một khung, app
 chấm theo khung thứ hai, và nhận về bức ảnh khung thứ ba.
+
+### ⚠️ 12/09/2026 — VẾ "THEO TỈ LỆ ẢNH MẪU" ĐÃ BỎ
+
+Mục này ban đầu viết là *"khung camera phải theo tỉ lệ ẢNH MẪU"*. Vế đó **không còn
+đúng**, và đã bỏ.
+
+Lý do: đo trên 13 ảnh mẫu cài sẵn thì **0/13 còn EXIF máy ảnh** và ít nhất **8/13 có
+tỉ lệ chỉ sinh ra được từ việc cắt cúp** (0,635 · 0,672 · 0,778 · 0,808 · 0,645, cộng
+1:1 và 4:5 kiểu Instagram; 6 ảnh rộng đúng 736px — bề rộng cột chuẩn của Pinterest).
+Bám theo tỉ lệ đó tức là bắt người dùng chụp ra ảnh 0,635 — không đăng được ở đâu và
+phí một phần cảm biến. Khung đầu ra giờ do **người dùng chọn** (`KhungDauRa`).
+
+Vế còn lại thì vẫn đúng nguyên và vẫn là lý do mục này tồn tại: **ba chỗ — khung xem
+trước, phép đo (`croppedToAspect`), và ảnh lưu ra (`cropToAspect`) — phải dùng chung
+đúng một con số.** Lệch nhau là người dùng canh một đằng ảnh ra một nẻo.
+
+Sở dĩ đổi được khung mà không phá phép so là vì **đích bố cục không còn đọc từ ảnh
+mẫu nữa** — nó do `BoCuc` sinh ra. Trước đây toạ độ chủ thể trong ảnh mẫu là đích, nên
+hai khung khác tỉ lệ thì hai hệ toạ độ không so được; giờ đích là một con số tuyệt đối
+trong khung đầu ra, nên tỉ lệ ảnh mẫu không còn tham gia vào phép so.
+
+---
 
 ## 64. `worldLandmarks` của MediaPipe là BỘ XƯƠNG CHUẨN, không phải phép đo hình học
 
@@ -2006,3 +2000,31 @@ thường, không báo gì. Đúng kiểu sai mà không ai biết.
 
 Ngưỡng 5% chứ không đòi bằng tuyệt đối: có máy trả về 1,0000001 do làm tròn số
 thực, đòi bằng đúng sẽ sinh vòng lặp đặt-zoom không bao giờ dừng.
+
+---
+
+## 66. Không thấy hông thì ĐỪNG lấy trục cổ→đầu thay cho trục thân
+
+**Sai:** ảnh chân dung không thấy hông, nên dùng vector vai→mũi làm trục thân để vẫn
+đo được góc máy.
+
+**Đúng:** trả về `null`. Không đo được thì bỏ mục đó ra và chia lại trọng số
+(quy tắc số 4).
+
+**Vì sao:** đo ngày 12/09/2026 trên 18 ảnh, so hai đường:
+
+```
+tương quan giữa trục thân và trục cổ→đầu :  0,287
+độ lệch chuẩn của phần chênh             : 23,9°
+ca tệ nhất (NGOI-ghe-giua-dong)          : trục thân +39,7°  so với  cổ→đầu −40,1°
+```
+
+Ngược hẳn dấu. Lý do: **đầu gật tự do**. Trục cổ→đầu bám tư thế đầu chứ không bám vị
+trí máy — đúng cùng một bệnh đã khiến mục "chỗ đứng" bị loại khỏi ảnh chân dung.
+
+Nó nguy hiểm vì trông rất hợp lý và **ổn định trong cùng một buổi chụp** (5 ảnh cùng
+buổi chỉ lệch 7,1°), nên thử nhanh sẽ tưởng là chạy được. Chỉ lộ khi so ảnh mẫu với
+người khác có tư thế đầu khác.
+
+Với ảnh chân dung thì mục **ngửa/chúc** (đo từ khuôn mặt) gánh phần thông tin góc — và
+với chân dung, góc giữa MẶT và ống kính mới đúng là thứ nhìn thấy được.

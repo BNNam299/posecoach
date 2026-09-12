@@ -31,8 +31,19 @@ data class ShotDeviation(
     val yawDeg: Double?,
     /** Chênh xa/gần, dạng TỈ LỆ TƯƠNG ĐỐI so với mẫu (0,2 = lệch 20%). */
     val scaleRatio: Double?,
-    /** Chênh trái/phải, theo tỉ lệ bề ngang khung hình. */
+    /** Chênh trái/phải so với ĐÍCH bố cục, theo tỉ lệ bề ngang khung hình. */
     val centerX: Double?,
+
+    /** Chênh trên/dưới so với ĐÍCH bố cục, theo tỉ lệ chiều cao khung hình. */
+    val centerY: Double?,
+
+    /**
+     * Trong hai trục của mục bố cục, trục nào đang lệch nhiều hơn.
+     *
+     * Mục bố cục gộp cả hai trục làm MỘT (người dùng đã kêu quá nhiều tiêu chí),
+     * nên cổng trễ chấm theo trục tệ hơn, và câu nhắc cũng nói về trục đó.
+     */
+    val boCucTrucDoc: Boolean = false,
     /** Chênh cao/thấp, theo tỉ lệ chiều cao khung hình. */
     val elevationDeg: Double?,
     /** Chênh NGHIÊNG NGANG, ĐỘ. Luôn dương. */
@@ -148,7 +159,13 @@ object ShotScorer {
         // ⚠️ HƯỚNG MẪU KHÔNG nằm trong phép cộng trung bình — nó là HỆ SỐ NHÂN,
         // xử lý riêng bên dưới. Xem [directionFactor] để biết vì sao.
         add(Criterion.SCALE, dev.scaleRatio?.div(Criterion.SCALE.reference))
-        add(Criterion.CENTER, dev.centerX?.div(Criterion.CENTER.reference))
+        // Bố cục chấm theo trục lệch nhiều hơn — sửa xong trục này còn trục kia
+        // thì vẫn chưa xong, nên lấy max chứ không lấy trung bình.
+        add(
+            Criterion.CENTER,
+            listOfNotNull(dev.centerX, dev.centerY).maxOrNull()
+                ?.div(Criterion.CENTER.reference),
+        )
         add(Criterion.ELEVATION, dev.elevationDeg?.div(Criterion.ELEVATION.reference))
         add(Criterion.PITCH, dev.pitchCue?.div(Criterion.PITCH.reference))
         add(Criterion.PERSPECTIVE, dev.perspective?.div(Criterion.PERSPECTIVE.reference))
@@ -234,6 +251,12 @@ object ShotScorer {
                 if (t <= 1e-6) null else abs(c - t) / t
             },
             centerX = pair(template.centerX, candidate.centerX) { t, c -> abs(c - t) },
+            centerY = pair(template.eyeY, candidate.eyeY) { t, c -> abs(c - t) },
+            boCucTrucDoc = run {
+                val dx = pair(template.centerX, candidate.centerX) { t, c -> abs(c - t) }
+                val dy = pair(template.eyeY, candidate.eyeY) { t, c -> abs(c - t) }
+                dy != null && (dx == null || dy > dx)
+            },
             elevationDeg = pair(template.elevationDeg, candidate.elevationDeg) { t, c -> abs(c - t) },
             rollDeg = rollDeviation(template, candidate)?.second,
             rollSource = rollDeviation(template, candidate)?.first,

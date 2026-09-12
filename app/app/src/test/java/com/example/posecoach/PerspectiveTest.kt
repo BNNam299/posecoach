@@ -29,6 +29,7 @@ class PerspectiveTest {
         scaleRatio = scale,
         centerX = 0.0,
         elevationDeg = 0.0,
+        centerY = 0.0,
         rollDeg = 0.0,
         rollSource = null,
         pitchCue = 0.0,
@@ -43,7 +44,7 @@ class PerspectiveTest {
 
     private fun measurement(vararg pairs: Pair<PerspectiveSource, Double>) = PoseMeasurement(
         framing = FramingClass.FULL,
-        scale = 0.60, centerX = 0.5, elevationDeg = 0.0,
+        scale = 0.60, centerX = 0.5, elevationDeg = 0.0, eyeY = 0.2,
         yawDeg = 0.0, faceYawDeg = null, eyesOpen = null,
         rollDeg = emptyMap(), pitchCue = emptyMap(),
         anchorHeightMeters = 1.60,

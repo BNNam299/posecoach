@@ -177,7 +177,8 @@ class GuidanceEngine(private val profile: TemplateProfile) {
             val deviation = when (c) {
                 Criterion.YAW -> dev.yawDeg
                 Criterion.SCALE -> dev.scaleRatio
-                Criterion.CENTER -> dev.centerX
+                Criterion.CENTER ->
+                    listOfNotNull(dev.centerX, dev.centerY).maxOrNull()
                 Criterion.ELEVATION -> dev.elevationDeg
                 Criterion.ROLL -> dev.rollDeg
                 Criterion.PITCH -> dev.pitchCue
@@ -203,6 +204,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 // hay đang đứng sai chỗ.
                 walkInsteadOfZoom = c == Criterion.SCALE && !profile.framing.seesLegs,
                 rollFromDevice = rollFromDevice,
+                boCucTrucDoc = dev.boCucTrucDoc,
                 tuChup = mode.tuChup,
                 latGuong = mode.latGuong,
                 mayNguocChieu = mode.mayNguocChieu,
@@ -441,7 +443,21 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 val b = live.rollDeg[src] ?: return@firstNotNullOfOrNull null
                 b - a
             }
-            Criterion.CENTER -> diff(t.centerX, live.centerX)
+            // Nhắc về trục đang lệch nhiều hơn. Đích là do `BoCuc` sinh ra,
+            // không phải vị trí chủ thể trong ảnh mẫu.
+            Criterion.CENTER -> {
+                val dx = if (t.centerX != null && live.centerX != null) {
+                    kotlin.math.abs(live.centerX - t.centerX)
+                } else null
+                val dy = if (t.eyeY != null && live.eyeY != null) {
+                    kotlin.math.abs(live.eyeY - t.eyeY)
+                } else null
+                when {
+                    dy != null && (dx == null || dy > dx) -> live.eyeY!! - t.eyeY!!
+                    dx != null -> live.centerX!! - t.centerX!!
+                    else -> null
+                }
+            }
             Criterion.ELEVATION -> diff(t.elevationDeg, live.elevationDeg)
             // Cùng luật "chỉ so khi cùng đường đo" như mục zoom bên dưới.
             Criterion.PITCH -> PitchSource.entries.firstNotNullOfOrNull { src ->
