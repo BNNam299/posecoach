@@ -2254,3 +2254,50 @@ cú xoay 150° là vô nghĩa. Nói thẳng *"quay hẳn người lại"*.
 
 ⚠️ Câu này đi qua `doiBenNeuLatGuong` như câu nhắc dáng, vì cùng suy bên từ một
 khung đo. **Chưa kiểm trên máy thật cho chế độ gương/camera trước.**
+
+---
+
+## 77. Mục HƯỚNG MẪU thiếu luật "chỉ so khi cùng đường đo"
+
+**Sai:**
+
+```kotlin
+if (preferFace && t.faceYawDeg != null && c.faceYawDeg != null) {
+    return angleDiff(t.faceYawDeg, c.faceYawDeg)
+}
+return pair(t.yawDeg, c.yawDeg) { a, b -> angleDiff(a, b) }   // lùi về góc THÂN
+```
+
+**Đúng:** thiếu đường ưu tiên thì trả `null`. Không lùi sang đường khác.
+
+**Vì sao:** góc mặt và góc thân có **gốc 0 khác nhau** — một cái đo đầu quay, một
+cái đo đường vai. Người quay đầu mà giữ nguyên thân thì hai số lệch nhau hàng chục
+độ. Lùi qua lại giữa chúng làm độ lệch **nhảy giữa hai thang theo từng khung hình**,
+nên mục này không bao giờ hội tụ.
+
+Triệu chứng PO gặp: *"máy bảo tôi xoay, nhưng tôi xoay mãi vẫn không đúng"*.
+
+⚠️ Mục nghiêng ngang và mục ngửa/chúc đã có luật này từ lâu (`rollDeviation`,
+`pitchDeviation` đều trả kèm `source`). Mục hướng mẫu bị bỏ sót — và bỏ sót được
+vì nó không trả `source` ra ngoài nên **không ai nhìn thấy nó đang dùng đường nào**.
+Nay `ShotDeviation.yawSource` bắt buộc phải có.
+
+---
+
+## 78. Camera trước lật khung xương nhưng KHÔNG lật góc mặt
+
+**Sai:** `frame = rawFrame.mirrored()` cho camera trước, rồi đưa `FaceInfo` lấy từ
+ảnh THÔ vào cùng một phép đo.
+
+**Đúng:** lật cả góc mặt — `yawDeg = −yawDeg` khi dùng camera trước.
+
+**Vì sao:** khung xương được lật để đo đúng **bức ảnh sẽ lưu** (quyết định sản phẩm
+06/09/2026). Nhưng ML Kit chạy trên bitmap thô chưa lật. Kết quả: hai đường đo của
+**cùng một mục** nằm ở hai hệ trái ngược — cùng một tư thế mà góc thân ra âm còn
+góc mặt ra dương.
+
+Cộng với FOOTGUNS 77 (lùi qua lại giữa hai đường) thì độ lệch không chỉ nhảy thang
+mà còn **nhảy dấu**. Người dùng xoay theo hướng app bảo thì số càng tệ đi.
+
+⚠️ Lật ngang đổi dấu góc quay TRÁI/PHẢI, nhưng **không** đổi góc ngửa/chúc — gương
+ngang không làm đầu ngẩng hay cúi khác đi. Đừng lật nhầm cả hai.

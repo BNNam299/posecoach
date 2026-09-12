@@ -237,4 +237,60 @@ class LimbTowardLensTest {
         )
         assertTrue(FramingClass.detect(ngoi, minVis)!!.seesLegs)
     }
+
+    // =================================================================
+    // ⚠️ MỤC HƯỚNG MẪU CŨNG PHẢI THEO LUẬT "CÙNG MỘT ĐƯỜNG ĐO" (12/09/2026)
+    // =================================================================
+
+    /**
+     * PO gặp thật: *"máy bảo tôi xoay, nhưng tôi xoay mãi vẫn không đúng"*.
+     *
+     * Bản cũ của `yawDeviation` ưu tiên góc mặt, nhưng **thiếu góc mặt ở một bên
+     * thì lặng lẽ lùi sang góc thân**. Hai đường có gốc 0 khác nhau — góc mặt đo
+     * đầu quay, góc thân đo đường vai. Người quay đầu mà giữ nguyên thân thì hai
+     * số lệch hàng chục độ.
+     *
+     * Hậu quả: độ lệch nhảy qua lại giữa hai thang theo từng khung hình, nên mục
+     * này **không bao giờ hội tụ**. Mục nghiêng ngang và ngửa/chúc đã có luật này
+     * từ lâu; mục hướng mẫu bị bỏ sót.
+     */
+    @Test
+    fun `anh mau chan dung ma khung hinh mat goc mat thi BO, khong lui ve goc than`() {
+        val tpl = Measurer.measure(nguoiDung(), FramingClass.CHEST, minVis)
+            .copy(faceYawDeg = 20.0, yawDeg = 5.0)
+        val live = Measurer.measure(nguoiDung(), FramingClass.CHEST, minVis)
+            .copy(faceYawDeg = null, yawDeg = 5.0)
+
+        val d = ShotScorer.deviation(tpl, live)
+        assertNull(
+            "Mất góc mặt thì phải BỎ mục này. Lùi về góc thân sẽ ra lệch 0 và app " +
+                "tưởng đã khớp, trong khi đầu mẫu đang quay 20 độ so với ảnh mẫu.",
+            d.yawDeg,
+        )
+        assertNull(d.yawSource)
+    }
+
+    @Test
+    fun `cung duong do thi so binh thuong va ghi ro duong nao`() {
+        val tpl = Measurer.measure(nguoiDung(), FramingClass.CHEST, minVis)
+            .copy(faceYawDeg = 20.0)
+        val live = Measurer.measure(nguoiDung(), FramingClass.CHEST, minVis)
+            .copy(faceYawDeg = 35.0)
+
+        val d = ShotScorer.deviation(tpl, live)
+        assertEquals(15.0, d.yawDeg!!, 1e-9)
+        assertEquals(com.example.posecoach.pose.YawSource.FACE_YAW, d.yawSource)
+    }
+
+    @Test
+    fun `anh toan than dung goc than, khong doi goc mat`() {
+        val tpl = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
+            .copy(yawDeg = 10.0, faceYawDeg = null)
+        val live = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
+            .copy(yawDeg = 40.0, faceYawDeg = null)
+
+        val d = ShotScorer.deviation(tpl, live)
+        assertEquals(30.0, d.yawDeg!!, 1e-9)
+        assertEquals(com.example.posecoach.pose.YawSource.BODY_3D, d.yawSource)
+    }
 }

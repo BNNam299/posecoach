@@ -29,6 +29,14 @@ import kotlin.math.abs
 data class ShotDeviation(
     /** Chênh hướng mẫu, ĐỘ (đã xử lý vòng qua ±180°). */
     val yawDeg: Double?,
+
+    /**
+     * ĐƯỜNG ĐO đã dùng cho [yawDeg]. `null` khi không đo được.
+     *
+     * Phải đọc kèm [yawDeg]: góc mặt và góc thân có gốc 0 khác nhau, trộn hai
+     * đường là đo nhầm đại lượng mà số vẫn trông hợp lệ.
+     */
+    val yawSource: YawSource?,
     /** Chênh xa/gần, dạng TỈ LỆ TƯƠNG ĐỐI so với mẫu (0,2 = lệch 20%). */
     val scaleRatio: Double?,
     /** Chênh trái/phải, theo tỉ lệ bề ngang khung hình. */
@@ -278,7 +286,8 @@ object ShotScorer {
     /** Độ lệch từng mục. Mục nào một trong hai bên không đo được thì trả `null`. */
     fun deviation(template: PoseMeasurement, candidate: PoseMeasurement): ShotDeviation =
         ShotDeviation(
-            yawDeg = yawDeviation(template, candidate),
+            yawDeg = yawDeviation(template, candidate)?.second,
+            yawSource = yawDeviation(template, candidate)?.first,
             // Chênh xa/gần tính theo TỈ LỆ TƯƠNG ĐỐI, không theo hiệu số tuyệt đối:
             // lệch 0,05 trên ảnh chân dung (mốc ~0,15) là rất nhiều, còn lệch 0,05
             // trên ảnh toàn thân (mốc ~0,85) thì gần như không thấy.
@@ -360,13 +369,36 @@ object ShotScorer {
      * so được với nhau, mà phép trừ vẫn ra kết quả trông hoàn toàn hợp lệ. Đúng
      * loại lỗi không bao giờ lộ ra khi chạy thử.
      */
-    private fun yawDeviation(t: PoseMeasurement, c: PoseMeasurement): Double? {
-        val preferFace = t.framing.yawSource == YawSource.FACE_YAW
-        if (preferFace && t.faceYawDeg != null && c.faceYawDeg != null) {
-            return angleDiff(t.faceYawDeg, c.faceYawDeg)
+    /**
+     * ⚠️ LUẬT "CHỈ SO KHI CÙNG ĐƯỜNG ĐO" — mục hướng mẫu trước đây THIẾU luật này.
+     *
+     * Bản cũ: ưu tiên góc mặt, nhưng **thiếu góc mặt ở một bên thì lặng lẽ lùi
+     * sang góc thân**. Hai đường đó có gốc 0 khác nhau — góc mặt đo đầu quay,
+     * góc thân đo đường vai. Người quay đầu mà giữ nguyên thân thì hai số lệch
+     * nhau hàng chục độ.
+     *
+     * Hậu quả: độ lệch **nhảy qua lại giữa hai thang** theo từng khung hình, nên
+     * mục này không bao giờ hội tụ. PO gặp đúng triệu chứng đó: *"máy bảo tôi
+     * xoay, nhưng tôi xoay mãi vẫn không đúng"*.
+     *
+     * Mục nghiêng ngang và mục ngửa/chúc đã có luật này từ lâu (xem `rollDeviation`,
+     * `pitchDeviation`). Mục hướng mẫu bị bỏ sót.
+     *
+     * Thiếu đường ưu tiên thì trả `null` — không đo được, và tầng trên sẽ giải
+     * thích cho người dùng. Lùi sang đường khác là đo nhầm đại lượng.
+     */
+    private fun yawDeviation(t: PoseMeasurement, c: PoseMeasurement): Pair<YawSource, Double>? =
+        when (t.framing.yawSource) {
+            YawSource.FACE_YAW ->
+                if (t.faceYawDeg != null && c.faceYawDeg != null) {
+                    YawSource.FACE_YAW to angleDiff(t.faceYawDeg, c.faceYawDeg)
+                } else null
+
+            YawSource.BODY_3D ->
+                if (t.yawDeg != null && c.yawDeg != null) {
+                    YawSource.BODY_3D to angleDiff(t.yawDeg, c.yawDeg)
+                } else null
         }
-        return pair(t.yawDeg, c.yawDeg) { a, b -> angleDiff(a, b) }
-    }
 
     /**
      * Chênh lệch hai góc, luôn lấy đường ngắn nhất trên vòng tròn, kết quả 0..180.

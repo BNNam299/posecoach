@@ -295,9 +295,18 @@ class CaptureViewModel : ViewModel() {
         val live = if (detected && profile != null) {
             Measurer.measure(
                 frame, profile.framing, minVisibility,
-                face = liveFace.takeIf {
-                    android.os.SystemClock.elapsedRealtime() - liveFaceAtMs < FACE_TOI_DA_MS
-                },
+                face = liveFace
+                    .takeIf {
+                        android.os.SystemClock.elapsedRealtime() - liveFaceAtMs < FACE_TOI_DA_MS
+                    }
+                    // ⚠️ CAMERA TRƯỚC: khung xương đã bị lật ở trên, nhưng ML Kit
+                    // chạy trên ảnh THÔ nên góc mặt CHƯA lật. Để nguyên là hai
+                    // đường đo của cùng một mục nằm ở hai hệ trái ngược nhau —
+                    // góc thân âm trong khi góc mặt dương cho cùng một tư thế.
+                    //
+                    // Lật ngang thì góc quay trái/phải đổi dấu; góc ngửa/chúc thì
+                    // KHÔNG đổi (gương ngang không làm đầu ngẩng hay cúi khác đi).
+                    ?.let { if (mode.camTruoc) it.copy(yawDeg = it.yawDeg?.unaryMinus()) else it },
                 vFovDeg = vFovDeg ?: Measurer.VFOV_ANH_MAU,
             )
         } else null

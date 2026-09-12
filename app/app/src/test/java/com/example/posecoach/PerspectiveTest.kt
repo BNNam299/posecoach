@@ -26,6 +26,7 @@ class PerspectiveTest {
 
     private fun dev(scale: Double?, perspective: Double?) = ShotDeviation(
         yawDeg = 0.0,
+        yawSource = null,
         scaleRatio = scale,
         centerX = 0.0,
         elevationDeg = 0.0,

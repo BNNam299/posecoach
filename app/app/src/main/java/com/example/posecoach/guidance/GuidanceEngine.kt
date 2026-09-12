@@ -564,13 +564,15 @@ class GuidanceEngine(private val profile: TemplateProfile) {
             // Phải theo đúng luật "chỉ so khi cùng đường đo" như `yawDeviation`:
             // góc mặt và góc thân là hai thang khác nhau.
             Criterion.YAW -> {
-                val dungMat = t.framing.yawSource == YawSource.FACE_YAW
+                // ⚠️ Cùng luật "chỉ so khi cùng đường đo" như `yawDeviation`:
+                // thiếu đường ưu tiên thì BỎ, KHÔNG lùi sang đường khác. Góc mặt
+                // và góc thân có gốc 0 khác nhau — lùi sang nhau là đo nhầm đại
+                // lượng mà số vẫn trông hợp lệ.
                 val a: Double?
                 val b: Double?
-                if (dungMat && t.faceYawDeg != null && live.faceYawDeg != null) {
-                    a = t.faceYawDeg; b = live.faceYawDeg
-                } else {
-                    a = t.yawDeg; b = live.yawDeg
+                when (t.framing.yawSource) {
+                    YawSource.FACE_YAW -> { a = t.faceYawDeg; b = live.faceYawDeg }
+                    YawSource.BODY_3D -> { a = t.yawDeg; b = live.yawDeg }
                 }
                 if (a == null || b == null) null else {
                     // Đưa về đường ngắn nhất trên vòng tròn, giữ dấu.
