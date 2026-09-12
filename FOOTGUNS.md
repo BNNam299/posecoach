@@ -1920,3 +1920,51 @@ template"*.
 
 ⚠️ **Ba chỗ phải khớp nhau.** Lệch một chỗ thì người dùng canh theo một khung, app
 chấm theo khung thứ hai, và nhận về bức ảnh khung thứ ba.
+
+## 64. `worldLandmarks` của MediaPipe là BỘ XƯƠNG CHUẨN, không phải phép đo hình học
+
+**Sai:** suy khoảng cách máy từ toạ độ 3D mà `PoseLandmarker` trả về — ví dụ
+khớp `u = f·X/(Z0+z)` để tìm `Z0`, hoặc so tỉ lệ 2D với tỉ lệ 3D của các mốc
+trên mặt.
+
+**Đúng:** chỉ dùng `worldLandmarks` cho **hướng** (thân người đang nghiêng về
+phía nào so với ống kính). Không dùng cho **khoảng cách**.
+
+**Vì sao:** đo ngày 12/09/2026 trên hai bộ dữ liệu độc lập — 5 ảnh chụp ở
+0,85m → 6,0m (gấp 7 lần) và 9 ảnh cùng người cùng bố cục ở tiêu cự 20mm → 200mm.
+Độ sâu giữa **tai và mắt** mà mô hình trả về:
+
+```
+tiêu cự  20→200mm : 10,7  10,8  10,5  10,6  10,7  11,0  11,0  11,0  11,4 cm
+khoảng cách 0,85→6m: 10,3   9,7  10,1  10,3  10,7 cm
+```
+
+Máy đổi vị trí hoàn toàn, con số đứng im quanh 10–11cm. Đó là **hằng số giải
+phẫu đã học thuộc**. Mô hình nắn một bộ xương chuẩn cho khớp ảnh, và độ méo
+phối cảnh — thứ duy nhất mang thông tin khoảng cách — bị nắn phẳng mất.
+
+Mọi tỉ lệ 2D trên mặt (`mắt/tai`, `mũi-mắt`, `miệng/mắt`) cũng đứng im theo, vì
+11 điểm mặt được đặt vào vị trí *hợp lý về giải phẫu* chứ không phải vị trí
+*đúng theo phối cảnh*.
+
+⚠️ **Đừng thử lại bằng cách đổi mốc đo.** Nguyên nhân ở đầu ra của mô hình, không
+ở chỗ chọn mốc. Muốn đo thật phải đổi sang mô hình khuôn mặt dày (ML Kit contour
+133 điểm) và **kiểm trên máy thật** — Python không kiểm hộ được.
+
+**Hệ quả đã áp dụng:** không đo được một biến thì cố định biến kia. Ghim zoom
+lại thì cỡ mẫu trong khung xác định được khoảng cách. Chọn ghim ở mức nào thì
+hỏi người dùng — xem `guidance/KieuChanDung.kt`.
+
+## 65. Ghim zoom mà quên chụm hai ngón thì phép đo sai trong im lặng
+
+**Sai:** đặt `setZoom(ghim)` một lần lúc mở màn chụp rồi coi như xong.
+
+**Đúng:** theo dõi và kéo về mỗi khi lệch quá 5% mức ghim.
+
+**Vì sao:** `PreviewView` **tự bật sẵn** cử chỉ chụm hai ngón, không tắt được từ
+màn chụp. Người dùng vô tình chụm tay là zoom đổi, và toàn bộ lập luận
+"ghim zoom nên cỡ mẫu suy ra khoảng cách" sụp — nhưng app vẫn chấm điểm bình
+thường, không báo gì. Đúng kiểu sai mà không ai biết.
+
+Ngưỡng 5% chứ không đòi bằng tuyệt đối: có máy trả về 1,0000001 do làm tròn số
+thực, đòi bằng đúng sẽ sinh vòng lặp đặt-zoom không bao giờ dừng.
