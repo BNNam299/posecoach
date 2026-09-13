@@ -25,6 +25,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import kotlin.math.sin
+import kotlin.math.cos
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
@@ -175,6 +182,8 @@ fun CaptureScreen(
     templateFile: File,
     onBack: () -> Unit,
     onFinished: (sessionDir: File) -> Unit,
+    /** Nút thư viện bên trái nút chụp — mở màn Thư viện xem ảnh đã giữ. */
+    onOpenLibrary: () -> Unit,
     vm: CaptureViewModel = viewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -195,8 +204,11 @@ fun CaptureScreen(
         // NHÓM CỦA ẢNH MẪU QUYẾT ĐỊNH CHẾ ĐỘ CHỤP.
         //
         // Ảnh mẫu selfie gương gần như không tái tạo được nếu đang ở chế độ người
-        // khác chụp — nên đặt sẵn cho đúng thay vì bắt người dùng tự nhớ. Vẫn đổi
-        // tay được bằng hàng nút ngay dưới.
+        // khác chụp — nên đặt sẵn cho đúng thay vì bắt người dùng tự nhớ.
+        //
+        // ⚠️ Hàng nút chọn chế độ đã GỠ (13/09/2026, yêu cầu PO): chọn template là
+        // đã quyết định chế độ, bắt người dùng chọn lại lần nữa là thừa. Chỉ còn
+        // nút xoay camera trước/sau, xem `CameraControls`.
         vm.onShootModeChanged(
             when (MediaLibrary.TemplateKind.of(templateFile.name)) {
                 MediaLibrary.TemplateKind.SELFIE -> ShootMode.TU_CHUP_CAM_TRUOC
@@ -205,6 +217,16 @@ fun CaptureScreen(
             }
         )
         Unit
+    }
+
+    // Chế độ camera SAU của template này — nút xoay camera quay về đây khi rời
+    // camera trước. Ảnh mẫu gương thì về chế độ gương, còn lại về người khác chụp.
+    val cheDoCamSau = remember(templateFile) {
+        if (MediaLibrary.TemplateKind.of(templateFile.name) == MediaLibrary.TemplateKind.MIRROR) {
+            ShootMode.TU_CHUP_GUONG
+        } else {
+            ShootMode.NGUOI_KHAC
+        }
     }
 
     // --- Quyền dùng camera ---
@@ -627,15 +649,6 @@ fun CaptureScreen(
                     // Cong tac hai che do. An di trong luc dang quay/dang chup de
                     // nguoi dung khong doi che do giua chung.
                     if (!state.recording && state.burstTaken == 0) {
-                        // Ai cam may. Cung an trong luc quay nhu cong tac che do:
-                        // doi giua chung thi cau chu doi nga, roi loan.
-                        ShootModeSwitch(state.mode) {
-                            // Doi camera truoc/sau phai gan lai toan bo camera,
-                            // nen bao controller TRUOC roi moi doi trang thai.
-                            controller?.setShootMode(it)
-                            vm.onShootModeChanged(it)
-                        }
-                        Spacer(Modifier.height(8.dp))
                         AutoSwitch(state.autoMode) { vm.onAutoModeChanged(it) }
                         Spacer(Modifier.height(8.dp))
                         ModeSwitch(state.burstMode) { burst ->
@@ -651,6 +664,15 @@ fun CaptureScreen(
                         state = state,
                         enabled = vm.readyToRecord,
                         onToggle = { vm.onCountdown(null); shoot() },
+                        onOpenLibrary = onOpenLibrary,
+                        onFlipCamera = {
+                            val next = if (state.mode.camTruoc) cheDoCamSau
+                            else ShootMode.TU_CHUP_CAM_TRUOC
+                            // Đổi camera trước/sau phải gắn lại toàn bộ camera, nên
+                            // báo controller TRƯỚC rồi mới đổi trạng thái.
+                            controller?.setShootMode(next)
+                            vm.onShootModeChanged(next)
+                        },
                     )
                 }
             }
@@ -1128,21 +1150,6 @@ private fun ThuocZoom(
 }
 
 
-@Composable
-private fun ShootModeSwitch(mode: ShootMode, onChange: (ShootMode) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ModeChip("Người khác chụp", mode == ShootMode.NGUOI_KHAC) {
-            onChange(ShootMode.NGUOI_KHAC)
-        }
-        ModeChip("Tự chụp qua gương", mode == ShootMode.TU_CHUP_GUONG) {
-            onChange(ShootMode.TU_CHUP_GUONG)
-        }
-        ModeChip("Cam trước", mode == ShootMode.TU_CHUP_CAM_TRUOC) {
-            onChange(ShootMode.TU_CHUP_CAM_TRUOC)
-        }
-    }
-}
-
 /**
  * BẬT/TẮT TỰ ĐỘNG.
  *
@@ -1360,12 +1367,128 @@ private fun ProcessingScreen(state: CaptureUiState) {
  * Nut giua chuyen do khi dang quay, dung dung y nghia mac dinh cua camera dien
  * thoai: trang = san sang, do = dang ghi.
  */
+/**
+ * Nút tròn phụ hai bên nút chụp.
+ *
+ * Nền mờ trên hình xem trước, đúng kiểu camera gốc. Bị khoá thì mờ hẳn đi chứ
+ * không biến mất — biến mất thì hàng nút giật sang một bên, nút chụp lệch tâm.
+ */
+@Composable
+private fun NutTronPhu(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit,
+) {
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(if (enabled) Color(0x59000000) else Color(0x26000000))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(Modifier.size(24.dp).graphicsLayer { alpha = if (enabled) 1f else 0.35f }) {
+            icon()
+        }
+    }
+}
+
+/**
+ * Icon thư viện ảnh — hai khung ảnh chồng nhau, khung trước có ngọn núi.
+ *
+ * Vẽ bằng Canvas vì app không dùng thư viện icon nào. Thêm `material-icons-extended`
+ * chỉ để lấy hai icon là kéo thêm vài MB vào APK, và dự án cấm tự ý thêm thư viện.
+ */
+@Composable
+private fun IconThuVien() {
+    Canvas(Modifier.fillMaxSize()) {
+        val w = size.width
+        val net = Stroke(width = w * 0.08f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val bo = CornerRadius(w * 0.08f)
+        // Khung sau
+        drawRoundRect(Color.White, Offset(w * 0.26f, w * 0.10f), Size(w * 0.64f, w * 0.60f), bo, style = net)
+        // Khung trước: tô nền tối trước để che nét khung sau
+        drawRoundRect(Color(0xFF2A2A2A), Offset(w * 0.10f, w * 0.28f), Size(w * 0.64f, w * 0.62f), bo)
+        drawRoundRect(Color.White, Offset(w * 0.10f, w * 0.28f), Size(w * 0.64f, w * 0.62f), bo, style = net)
+        // Núi
+        val nui = Path().apply {
+            moveTo(w * 0.16f, w * 0.82f)
+            lineTo(w * 0.36f, w * 0.58f)
+            lineTo(w * 0.50f, w * 0.72f)
+            lineTo(w * 0.58f, w * 0.64f)
+            lineTo(w * 0.70f, w * 0.82f)
+        }
+        drawPath(nui, Color.White, style = net)
+        // Mặt trời
+        drawCircle(Color.White, radius = w * 0.055f, center = Offset(w * 0.56f, w * 0.44f))
+    }
+}
+
+/**
+ * Icon xoay camera — thân máy ảnh với hai cung mũi tên quanh ống kính.
+ *
+ * Vẽ bằng Canvas, cùng lý do với [IconThuVien].
+ */
+@Composable
+private fun IconXoayCamera() {
+    Canvas(Modifier.fillMaxSize()) {
+        val w = size.width
+        val net = Stroke(width = w * 0.08f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        // Thân máy
+        val than = Path().apply {
+            moveTo(w * 0.34f, w * 0.26f)
+            lineTo(w * 0.42f, w * 0.16f)
+            lineTo(w * 0.58f, w * 0.16f)
+            lineTo(w * 0.66f, w * 0.26f)
+            lineTo(w * 0.86f, w * 0.26f)
+            quadraticTo(w * 0.94f, w * 0.26f, w * 0.94f, w * 0.34f)
+            lineTo(w * 0.94f, w * 0.78f)
+            quadraticTo(w * 0.94f, w * 0.86f, w * 0.86f, w * 0.86f)
+            lineTo(w * 0.14f, w * 0.86f)
+            quadraticTo(w * 0.06f, w * 0.86f, w * 0.06f, w * 0.78f)
+            lineTo(w * 0.06f, w * 0.34f)
+            quadraticTo(w * 0.06f, w * 0.26f, w * 0.14f, w * 0.26f)
+            close()
+        }
+        drawPath(than, Color.White, style = net)
+
+        // Hai cung tròn quanh ống kính, hướng ngược nhau
+        val tam = Offset(w * 0.50f, w * 0.56f)
+        val r = w * 0.19f
+        val goc = Offset(tam.x - r, tam.y - r)
+        val co = Size(r * 2, r * 2)
+        drawArc(Color.White, 200f, 130f, false, goc, co, style = net)
+        drawArc(Color.White, 20f, 130f, false, goc, co, style = net)
+
+        // Đầu mũi tên ở cuối mỗi cung
+        fun muiTen(gocDo: Float) {
+            val a = Math.toRadians(gocDo.toDouble())
+            val dinh = Offset(tam.x + (cos(a) * r).toFloat(), tam.y + (sin(a) * r).toFloat())
+            val tiep = Math.toRadians((gocDo + 90f).toDouble())
+            val tx = (cos(tiep) * w * 0.09).toFloat()
+            val ty = (sin(tiep) * w * 0.09).toFloat()
+            val nx = (cos(a) * w * 0.07).toFloat()
+            val ny = (sin(a) * w * 0.07).toFloat()
+            drawLine(Color.White, dinh, Offset(dinh.x - tx + nx, dinh.y - ty + ny), w * 0.08f, cap = StrokeCap.Round)
+            drawLine(Color.White, dinh, Offset(dinh.x - tx - nx, dinh.y - ty - ny), w * 0.08f, cap = StrokeCap.Round)
+        }
+        muiTen(330f)
+        muiTen(150f)
+    }
+}
+
 @Composable
 private fun CameraControls(
     state: CaptureUiState,
     enabled: Boolean,
     onToggle: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onFlipCamera: () -> Unit,
 ) {
+    // Đang quay hoặc đang chụp liên tiếp thì KHOÁ hai nút phụ: rời màn giữa chừng
+    // là mất đoạn đang quay, còn xoay camera là phải gắn lại toàn bộ camera.
+    val dangBan = state.recording || state.burstTaken > 0
+
     Column(
         Modifier.fillMaxWidth().padding(bottom = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1389,32 +1512,45 @@ private fun CameraControls(
             Spacer(Modifier.height(8.dp))
         }
 
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            // Vong ngoai trang, loi trong doi mau theo trang thai.
-            Box(
-                Modifier
-                    .size(76.dp)
-                    .clip(RoundedCornerShape(Ds.rPill))
-                    .background(Color(0x40FFFFFF))
-                    .clickable(
-                        enabled = enabled && (!state.recording || state.canStop) &&
-                            state.burstTaken == 0,
-                        onClick = onToggle,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
+        // Ba ô CHIA ĐỀU nên nút chụp luôn nằm đúng giữa, hai nút phụ đối xứng
+        // hai bên — đúng bố cục camera gốc của cả iOS lẫn Android.
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                NutTronPhu(enabled = !dangBan, onClick = onOpenLibrary) { IconThuVien() }
+            }
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                // Vòng ngoài trắng mờ, lõi trong đổi màu theo trạng thái.
                 Box(
                     Modifier
-                        .size(60.dp)
+                        .size(76.dp)
                         .clip(RoundedCornerShape(Ds.rPill))
-                        .background(
-                            when {
-                                !enabled -> Color(0x66FFFFFF)
-                                state.recording || state.burstTaken > 0 -> Ds.recording
-                                else -> Color.White
-                            }
-                        )
-                )
+                        .background(Color(0x40FFFFFF))
+                        .clickable(
+                            enabled = enabled && (!state.recording || state.canStop) &&
+                                state.burstTaken == 0,
+                            onClick = onToggle,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier
+                            .size(60.dp)
+                            .clip(RoundedCornerShape(Ds.rPill))
+                            .background(
+                                when {
+                                    !enabled -> Color(0x66FFFFFF)
+                                    state.recording || state.burstTaken > 0 -> Ds.recording
+                                    else -> Color.White
+                                }
+                            )
+                    )
+                }
+            }
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                NutTronPhu(enabled = !dangBan, onClick = onFlipCamera) { IconXoayCamera() }
             }
         }
 

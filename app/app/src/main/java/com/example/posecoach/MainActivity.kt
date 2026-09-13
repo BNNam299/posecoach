@@ -113,6 +113,9 @@ private fun AppRoot() {
             templateFile = s.template,
             onBack = { screen = Screen.Templates },
             onFinished = { dir -> screen = Screen.Result(s.template, dir) },
+            // Nút thư viện bên trái nút chụp. Sang thẳng tab Thư viện — nút quay lại
+            // ở đó đưa về tab Ảnh mẫu, không quay về camera, đúng như mọi tab khác.
+            onOpenLibrary = { screen = Screen.Library },
         )
 
         is Screen.Result -> ResultScreen(
