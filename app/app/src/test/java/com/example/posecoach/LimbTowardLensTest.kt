@@ -131,7 +131,7 @@ class LimbTowardLensTest {
         val tpl = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
             .copy(pitchCue = mapOf(PitchSource.LEGS to 0.20))
         val live = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
-            .copy(pitchCue = mapOf(PitchSource.FACE_3D to 0.20))
+            .copy(pitchCue = mapOf(PitchSource.GOC_MAY to 0.20))
 
         assertNull(
             "Hai con số thuộc hai thang khác hẳn nhau (nhiễu 0,016 so với 0,104). " +
@@ -143,21 +143,25 @@ class LimbTowardLensTest {
     @Test
     fun `cung duong do thi so binh thuong`() {
         val tpl = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
-            .copy(pitchCue = mapOf(PitchSource.FACE_3D to 0.20))
+            .copy(pitchCue = mapOf(PitchSource.GOC_MAY to 0.20))
         val live = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis)
-            .copy(pitchCue = mapOf(PitchSource.FACE_3D to 0.50))
+            .copy(pitchCue = mapOf(PitchSource.GOC_MAY to 0.50))
 
         val dev = ShotScorer.deviation(tpl, live)
         assertEquals(0.30, dev.pitchCue!!, 1e-9)
-        assertEquals(PitchSource.FACE_3D, dev.pitchSource)
+        assertEquals(PitchSource.GOC_MAY, dev.pitchSource)
     }
 
     @Test
-    fun `co ca hai duong do thi uu tien duong CHAN vi it nhieu hon`() {
-        val both = mapOf(PitchSource.LEGS to 0.10, PitchSource.FACE_3D to 0.90)
+    fun `co ca hai duong do thi uu tien GOC MAY`() {
+        // ⚠️ ĐỔI CHỦ Ý 14/09/2026 — trước đây ưu tiên đường CHÂN vì ít nhiễu hơn
+        // đường khung mặt. Đường khung mặt đã bị gỡ (tương quan −0,117 với góc
+        // thật). Đường góc máy thì phía camera lấy thẳng từ cảm biến trọng lực,
+        // sai số dưới 1° — không đường ảnh nào sánh được.
+        val both = mapOf(PitchSource.LEGS to 0.10, PitchSource.GOC_MAY to 0.90)
         val tpl = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis).copy(pitchCue = both)
         val live = Measurer.measure(nguoiDung(), FramingClass.FULL, minVis).copy(pitchCue = both)
-        assertEquals(PitchSource.LEGS, ShotScorer.deviation(tpl, live).pitchSource)
+        assertEquals(PitchSource.GOC_MAY, ShotScorer.deviation(tpl, live).pitchSource)
     }
 
     // =================================================================
@@ -172,18 +176,19 @@ class LimbTowardLensTest {
             Criterion.PITCH, FramingClass.FULL, 0.60, PitchSource.LEGS,
         )!!
         val than = GuidanceConfig.bandFor(
-            Criterion.PITCH, FramingClass.FULL, 0.60, PitchSource.SPINE_3D,
+            Criterion.PITCH, FramingClass.FULL, 0.60, PitchSource.GOC_MAY,
         )!!
         val mat = GuidanceConfig.bandFor(
-            Criterion.PITCH, FramingClass.CHEST, 0.60, PitchSource.FACE_3D,
+            Criterion.PITCH, FramingClass.CHEST, 0.60, PitchSource.GOC_MAY,
         )!!
 
         // Đường CHÂN là tỉ lệ không đơn vị — giữ ngưỡng cũ.
         assertEquals(GuidanceConfig.PITCH_LEGS_ACCEPT, legs.accept, 1e-9)
-        // Hai đường kia ra ĐỘ, nên lần đầu tiên ngưỡng của tài liệu v3 áp thẳng
-        // được: 5° cho lớp thấy chân, 4° cho bán thân, 3° cho chân dung cận.
-        assertEquals(5.0, than.accept, 1e-9)
-        assertEquals(4.0, mat.accept, 1e-9)
+        // Đường góc máy ra ĐỘ. Ngưỡng nới rộng 12° cho mọi lớp (14/09/2026): phía
+        // ảnh mẫu là suy đoán sai số cỡ 10°, ngưỡng hẹp hơn thì người dùng đuổi
+        // theo nhiễu mãi — xem ghi chú trong `GuidanceConfig`.
+        assertEquals(12.0, than.accept, 1e-9)
+        assertEquals(12.0, mat.accept, 1e-9)
     }
 
     /**
@@ -207,9 +212,9 @@ class LimbTowardLensTest {
     @Test
     fun `khong con duong do bang ti le khung mat tren vai`() {
         assertTrue(
-            "PitchSource chỉ được có ba đường: trục thân, chân, và góc mặt",
-            PitchSource.entries.map { it.name }.toSet() ==
-                setOf("SPINE_3D", "LEGS", "FACE_3D"),
+            "PitchSource chỉ còn hai đường: góc máy (độ) và chân. Đường góc mặt đã " +
+                "đo và loại — người chụp selfie luôn nhìn vào máy nên góc mặt ~0°",
+            PitchSource.entries.map { it.name }.toSet() == setOf("GOC_MAY", "LEGS"),
         )
     }
 

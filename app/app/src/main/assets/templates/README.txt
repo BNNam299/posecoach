@@ -31,11 +31,24 @@ DAT NHOM SAI THI SAO?
   -> cau nhac ve tay chan se NHAM BEN (guong dao trai/phai).
 - Van doi tay duoc bang hang nut tren man chup, nen khong phai loi chet nguoi.
 
+NHAN GOC MAY — TU DAU TIEN SAU TIEN TO NHOM
+--------------------------------------------
+Voi anh selfie, app KHONG TU SUY duoc may dat cao hay thap tu anh (da do va
+loai ca ba cach). Nguoi soan thu vien gan tay bang mot tu:
+
+    tren   ->  may tren cao, chuc xuong      (vd: selfie-tren-tai-nghe.jpg)
+    ngang  ->  may ngang tam                 (vd: selfie-ngang-keo-co-ao.jpg)
+    duoi   ->  may thap, hat len             (vd: selfie-duoi-nen-troi-xanh.jpg)
+
+Nhan bi cat khoi ten hien thi. Anh chup nguoi khac cung gan duoc
+(vd: tren-kinh-ram.jpg), khi do nhan THANG phep suy tu anh.
+Khong gan nhan thi anh selfie se KHONG co muc may cao/thap va ngua/chuc.
+
 SAU KHI THEM HOAC BO ANH — BAT BUOC LAM BUOC NAY
 ------------------------------------------------
 Mo file:   app/app/src/main/java/com/example/posecoach/media/MediaLibrary.kt
-Tim dong:  private const val SEED_MARKER = ".da-nap-anh-mau-v4"
-Doi so cuoi:  v4 -> v5  (lan sau nua: v5 -> v6)
+Tim dong:  private const val SEED_MARKER = ".da-nap-anh-mau-v5"
+Doi so cuoi:  v5 -> v6  (lan sau nua: v6 -> v7)
 
 Khong doi so thi app CHI dung bo anh cu, vi no nho la "da nap roi".
 Doi so xong, lan mo app ke tiep se:

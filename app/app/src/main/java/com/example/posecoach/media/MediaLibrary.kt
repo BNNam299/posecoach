@@ -44,7 +44,7 @@ object MediaLibrary {
      * ⚠️ Chỉ xoá ảnh **do app cài sẵn** — ảnh người dùng tự chọn từ máy KHÔNG bị
      * đụng tới. Danh sách ảnh cài sẵn ghi trong chính file đánh dấu.
      */
-    private const val SEED_MARKER = ".da-nap-anh-mau-v4"
+    private const val SEED_MARKER = ".da-nap-anh-mau-v5"
 
     private val IMAGE_EXT = setOf("jpg", "jpeg", "png", "webp", "jfif")
 
@@ -83,11 +83,64 @@ object MediaLibrary {
     data class Template(val file: File) {
         val kind: TemplateKind get() = TemplateKind.of(file.name)
 
-        /** Tên hiển thị: bỏ tiền tố nhóm, bỏ đuôi file, đổi gạch ngang thành khoảng trắng. */
+        /** Tên hiển thị: bỏ tiền tố nhóm, bỏ nhãn góc, bỏ đuôi, gạch ngang thành khoảng trắng. */
         val displayName: String
-            get() = file.nameWithoutExtension
-                .removePrefix(kind.prefix.removeSuffix("-") + "-")
-                .replace('-', ' ').replace('_', ' ')
+            get() = boNhanGoc(
+                file.nameWithoutExtension.removePrefix(kind.prefix.removeSuffix("-") + "-")
+            ).replace('-', ' ').replace('_', ' ')
+    }
+
+    /**
+     * NHÃN GÓC MÁY trong tên file ảnh mẫu → độ nghiêng máy cần có, ĐỘ.
+     *
+     * Từ đầu tiên sau tiền tố nhóm:
+     *
+     * | Nhãn | Nghĩa | Góc |
+     * |---|---|---|
+     * | `tren` | máy trên cao, chúc xuống | −35° |
+     * | `ngang` | máy ngang tầm | 0° |
+     * | `duoi` | máy thấp, hất lên | +25° |
+     *
+     * Ví dụ: `selfie-tren-tai-nghe-nhin-nghieng.jpg`.
+     *
+     * ## Vì sao phải gán tay
+     *
+     * Với ảnh selfie **không có cách nào suy được góc máy từ ảnh**. Đã đo và loại
+     * lần lượt ba đường: tỉ lệ mặt/vai (tương quan −0,117), đường tai–mắt
+     * (+0,128), và góc ngửa/chúc của mặt từ ML Kit — cái cuối dao động −3° tới +2°
+     * trên đúng một ảnh chụp từ trên cao, vì người chụp selfie luôn nhìn vào máy.
+     *
+     * Tài liệu gốc đã tính trước ca này: *"template confidence thấp PHẢI được
+     * người gán tay"*. Thư viện ảnh mẫu vốn là thư viện chọn lọc, và đã dùng tên
+     * file để gán nhóm rồi.
+     *
+     * Ba mức thô chứ không ghi số độ: người gán nhìn ảnh bằng mắt, phân biệt được
+     * "từ trên / ngang / từ dưới" chứ không ước được 28° hay 35°. Ngưỡng đạt của
+     * mục này đủ rộng để ôm sai số đó.
+     *
+     * Có nhãn thì nhãn THẮNG phép suy từ ảnh — người gán nhìn thấy thứ máy không
+     * thấy. `null` = không có nhãn.
+     */
+    fun gocMayTheoNhan(nameWithoutExtension: String): Double? =
+        when (tuDauSauTienTo(nameWithoutExtension)) {
+            "tren" -> -35.0
+            "ngang" -> 0.0
+            "duoi" -> 25.0
+            else -> null
+        }
+
+    private fun tuDauSauTienTo(ten: String): String {
+        val n = ten.lowercase()
+        val kind = TemplateKind.of(n)
+        val sau = if (kind.prefix.isNotEmpty()) n.removePrefix(kind.prefix) else n
+        return sau.substringBefore('-')
+    }
+
+    private fun boNhanGoc(tenSauTienTo: String): String {
+        val tu = tenSauTienTo.substringBefore('-').lowercase()
+        return if (tu in setOf("tren", "ngang", "duoi") && tenSauTienTo.contains('-')) {
+            tenSauTienTo.substringAfter('-')
+        } else tenSauTienTo
     }
 
     fun templatesDir(context: Context): File =

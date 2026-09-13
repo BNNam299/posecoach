@@ -291,7 +291,7 @@ object ShotScorer {
             // Chênh xa/gần tính theo TỈ LỆ TƯƠNG ĐỐI, không theo hiệu số tuyệt đối:
             // lệch 0,05 trên ảnh chân dung (mốc ~0,15) là rất nhiều, còn lệch 0,05
             // trên ảnh toàn thân (mốc ~0,85) thì gần như không thấy.
-            scaleRatio = pair(template.scale, candidate.scale) { t, c ->
+            scaleRatio = scalePair(template, candidate)?.let { (t, c) ->
                 if (t <= 1e-6) null else abs(c - t) / t
             },
             centerX = pair(template.centerX, candidate.centerX) { t, c -> abs(c - t) },
@@ -387,6 +387,23 @@ object ShotScorer {
      * Thiếu đường ưu tiên thì trả `null` — không đo được, và tầng trên sẽ giải
      * thích cho người dùng. Lùi sang đường khác là đo nhầm đại lượng.
      */
+    /**
+     * Cặp số đo cỡ mẫu (ảnh mẫu, khung hình) — chọn MỐC theo ảnh mẫu.
+     *
+     * Mốc chính của lớp khung hình (đầu→cổ chân…) bị bỏ khi chân chĩa vào ống
+     * kính, đúng ca ảnh chụp từ trên cao. Lúc đó dùng chiều cao khung mặt.
+     *
+     * ⚠️ Chọn theo ẢNH MẪU chứ không theo khung hình: ảnh mẫu cố định nên mốc
+     * không bao giờ đổi giữa chừng. Chọn theo cái nào đang có ở khung hiện tại là
+     * đúng lỗi FOOTGUNS 77 — độ lệch nhảy qua lại giữa hai thang.
+     */
+    internal fun scalePair(t: PoseMeasurement, c: PoseMeasurement): Pair<Double, Double>? =
+        when {
+            t.scale != null -> c.scale?.let { t.scale to it }
+            t.faceScale != null -> c.faceScale?.let { t.faceScale to it }
+            else -> null
+        }
+
     private fun yawDeviation(t: PoseMeasurement, c: PoseMeasurement): Pair<YawSource, Double>? =
         when (t.framing.yawSource) {
             YawSource.FACE_YAW ->

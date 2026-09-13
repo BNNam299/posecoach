@@ -58,6 +58,11 @@ data class CriterionStatus(
      */
     val rollFromDevice: Boolean = true,
     /**
+     * Mục 3 đã GỘP với mục 4 vì hai mục cùng chiều — câu nhắc nói cả hai động tác.
+     * Xem `GuidanceEngine.gopCaoVaChuc`.
+     */
+    val kemChuc: Boolean = false,
+    /**
      * Mục này ÁP DỤNG cho ảnh mẫu nhưng khung hình hiện tại **không đo được**, và
      * đã như vậy đủ lâu để cần giải thích.
      *
@@ -108,7 +113,7 @@ data class CriterionStatus(
      * báo máy vẹo thì nhắc người cầm máy, báo máy thẳng thì nhắc mẫu.
      */
     val isModelCue: Boolean
-        get() = criterion.forModel || (criterion == Criterion.ROLL && !rollFromDevice)
+        get() = criterion.forModel
 
     /** Số bước để ghép vào câu. Không ước lượng được thì nói "một chút". */
     fun stepsPhrase(): String =
@@ -304,16 +309,17 @@ internal fun cueTextFor(status: CriterionStatus): String {
             //
             // ⚠️ Chiều này CHƯA kiểm trên máy thật.
             val s2 = if (status.mayNguocChieu) -signed else signed
-            when {
-                // Cảm biến báo máy đang thẳng → phần nghiêng còn lại là do MẪU.
-                !status.rollFromDevice -> {
-                    val ben = if (s2 > 0) "phải" else "trái"
-                    if (status.tuChup) "Đứng thẳng người lại, bạn đang hơi ngả sang $ben"
-                    else "Bảo mẫu đứng thẳng người lại, đang hơi ngả sang $ben"
-                }
-                s2 > 0 -> "Xoay máy ngược chiều kim đồng hồ đến khi tích sáng"
-                else -> "Xoay máy theo chiều kim đồng hồ đến khi tích sáng"
-            }
+            // ⚠️ LUÔN NÓI VỀ MÁY, KHÔNG ĐỔ CHO MẪU NỮA (14/09/2026).
+            //
+            // Bản cũ: cảm biến báo máy thẳng thì quy phần nghiêng cho mẫu và nói
+            // *"Bảo mẫu đứng thẳng người lại, đang hơi ngả sang trái"*. Nhãn của mục
+            // lại là "Máy nghiêng". PO test: *"người chụp máy nghiêng là như nào?"*
+            // — nhãn nói máy, câu nói người, người dùng không biết phải làm gì.
+            //
+            // Dù nguyên nhân là máy vẹo hay ảnh mẫu cố tình chụp nghiêng, người cầm
+            // máy luôn sửa được bằng cách xoay máy. Nên câu luôn là việc của máy.
+            if (s2 > 0) "Xoay máy ngược chiều kim đồng hồ đến khi tích sáng"
+            else "Xoay máy theo chiều kim đồng hồ đến khi tích sáng"
         }
 
         Criterion.PERSPECTIVE -> when {
@@ -443,8 +449,12 @@ internal fun cueTextFor(status: CriterionStatus): String {
         // Phân vai giữa hai mục: mục 3 nói VIỆC LỚN (đặt máy ở đâu, kèm chiều
         // chúc để giữ mẫu trong khung), mục 4 chỉ TINH CHỈNH khi độ cao đã đúng.
         Criterion.ELEVATION -> when {
-            signed > 0 -> "Nâng máy cao hơn rồi chúc xuống, đến khi tích sáng"
-            else -> "Hạ máy thấp xuống rồi hất lên, đến khi tích sáng"
+            // Gộp với mục ngửa/chúc: một động tác liền, đúng cách người chụp làm.
+            status.kemChuc && signed > 0 -> "Nâng máy cao hơn rồi chúc xuống, đến khi tích sáng"
+            status.kemChuc -> "Hạ máy thấp xuống rồi hất lên, đến khi tích sáng"
+            // Chỉ lệch độ cao, góc chúc đã đúng: giữ nguyên góc mà dời máy.
+            signed > 0 -> "Nâng máy lên cao hơn, giữ nguyên góc, đến khi tích sáng"
+            else -> "Hạ máy xuống thấp hơn, giữ nguyên góc, đến khi tích sáng"
         }
 
         // pitchCue dương = máy đang hất lên.
@@ -462,7 +472,12 @@ internal fun cueTextFor(status: CriterionStatus): String {
         // về câu chung — thà nói chung chung còn hơn nói sai khớp.
         // PoseDescriber vốn đã viết theo GÓC NHÌN CỦA MẪU (vì người cầm máy đọc
         // to lên), nên tự chụp dùng lại nguyên văn được — người đọc chính là mẫu.
-        Criterion.POSE -> status.poseHint?.let { doiBenNeuLatGuong(it, status.latGuong) }
+        // Tự chụp thì không có ai để "bảo" — PoseDescriber viết sẵn "Bảo mẫu …"
+        // nên phải bỏ tiền tố. Video test 13/09/2026: selfie vẫn hiện "Bảo mẫu gập
+        // tay trái lại" trong khi người cầm máy chính là mẫu.
+        Criterion.POSE -> status.poseHint
+            ?.let { doiBenNeuLatGuong(it, status.latGuong) }
+            ?.let { if (status.tuChup) it.removePrefix("Bảo mẫu ").replaceFirstChar { c -> c.uppercase() } else it }
             ?: if (status.tuChup) "Chỉnh dáng theo ảnh mẫu" else "Bảo mẫu chỉnh dáng theo ảnh mẫu"
 
         // Ba mục hậu kỳ không bao giờ tới được đây.

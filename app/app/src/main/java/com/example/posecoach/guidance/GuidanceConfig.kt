@@ -93,19 +93,24 @@ object GuidanceConfig {
             FramingClass.CHEST -> 0.08
             FramingClass.HEAD -> 0.06
         }
-        // ĐỘ — mục 3 giờ là góc nhìn thật, xem `measureElevationDeg`.
-        Criterion.ELEVATION -> when (f) {
-            FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 6.0
-            FramingClass.CHEST -> 4.0
-            FramingClass.HEAD -> 3.0
-        }
-        // Mục 4 giờ ra ĐỘ ở cả hai đường chính (trục thân và góc mặt), nên lần
-        // đầu tiên ngưỡng của tài liệu áp thẳng được mà không phải quy đổi.
-        Criterion.PITCH -> when (f) {
-            FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 5.0
-            FramingClass.CHEST -> 4.0
-            FramingClass.HEAD -> 3.0
-        }
+        // ⚠️ MỤC 3 VÀ MỤC 4 NỚI RỘNG, KHÔNG CÒN SIẾT THEO LỚP (14/09/2026).
+        //
+        // Bảng v3 ghi 6/6/4/3° và 5/5/4/3° — con số đó giả định CẢ HAI BÊN đo
+        // chính xác cỡ vài độ. Thực tế phía ảnh mẫu là SUY ĐOÁN (từ trục thân 3D,
+        // hoặc nhãn thô "trên/ngang/dưới"), sai số cỡ 10°. Ngưỡng hẹp hơn sai số
+        // của chính phép đo thì người dùng đuổi theo nhiễu mãi không tới.
+        //
+        // Video test 13/09/2026: ảnh chúc từ trên cao, người chụp dao động từ
+        // −31° tới −59° quanh đích −53°. Ngưỡng 5° chỉ cho qua đoạn −48..−58 —
+        // cầm máy trên tay không giữ nổi, nên "chúc mãi không dừng" và không bao
+        // giờ tự chụp được.
+        //
+        // Tài liệu gốc cũng không đòi chính xác tới vậy: nó chia góc máy thành 5
+        // bậc và chấp nhận *"đúng bậc hoặc lệch 1 bậc kề"* — tức dung sai thực tế
+        // cỡ ±12°. Dùng đúng tinh thần đó. Vẫn đủ phân biệt ba kiểu ảnh: chụp
+        // thẳng (~0°), chúc từ trên (~−35 tới −55°), ngửa từ dưới (~+25 tới +40°).
+        Criterion.PITCH -> 12.0
+        Criterion.ELEVATION -> 10.0
         Criterion.CENTER -> when (f) {
             FramingClass.FULL, FramingClass.KNEE, FramingClass.HALF -> 0.05
             FramingClass.CHEST -> 0.04
@@ -331,7 +336,13 @@ object GuidanceConfig {
             accept = accept,
             enter = accept * ENTER_FACTOR,
             unlock = accept * UNLOCK_FACTOR,
-            actionFloor = actionFloorFor(criterion, framing, templateScale),
+            // Mục 4 giờ ra ĐỘ ở đường chính, nên sàn hành động cũng phải bằng độ.
+            // Đường chân vẫn là tỉ lệ không đơn vị, giữ sàn cũ.
+            actionFloor = if (criterion == Criterion.PITCH && pitchSource != PitchSource.LEGS) {
+                3.0
+            } else {
+                actionFloorFor(criterion, framing, templateScale)
+            },
         )
     }
 }

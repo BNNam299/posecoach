@@ -187,7 +187,28 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 Criterion.ELEVATION -> dev.elevationDeg
                 Criterion.ROLL -> dev.rollDeg
                 Criterion.PITCH -> dev.pitchCue
-                Criterion.PERSPECTIVE -> dev.perspective
+                // ⚠️ ĐÃ LÙI ĐỦ XA THÌ THÔI BẮT LÙI (14/09/2026).
+                //
+                // Video test 13/09/2026, ảnh chụp thẳng toàn thân: app bảo "lùi lại"
+                // suốt, người chụp lùi tới mức mẫu chỉ còn chiếm 23-25% chiều cao
+                // khung mà vẫn bị bảo lùi. Ảnh mẫu kiểu studio chụp bằng ống dài từ
+                // rất xa — trong phòng không lùi tới được.
+                //
+                // Với ảnh chụp bình thường thì đúng cách PO mô tả: *"chụp từ xa zoom
+                // lại"*. Lùi tới khoảng cách hợp lý cho lớp khung hình này là đủ,
+                // phần còn lại để zoom lo (mục khung hình).
+                //
+                // KHÔNG áp cho ảnh chụp sát có chủ ý: ở đó độ méo chính là cái hồn
+                // của ảnh, phải đứng đúng chỗ.
+                Criterion.PERSPECTIVE -> dev.perspective?.let { d ->
+                    val muonLui = (signedDelta(c, t, live) ?: 0.0) > 0.0
+                    val dangCach = DistanceEstimator.estimate(
+                        live.scale, live.anchorHeightMeters, zoomRatio,
+                    )
+                    if (!profile.chupSat && muonLui && dangCach != null &&
+                        dangCach >= DistanceEstimator.minStandoffMeters(profile.framing)
+                    ) 0.0 else d
+                }
                 Criterion.POSE -> dev.poseDeg
                 else -> null
             }
@@ -253,6 +274,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 }
             }
             .let { sapXepNhac(it) }
+            .let { gopCaoVaChuc(it) }
 
         // ⚠️ THỨ TỰ HƯỚNG DẪN: MÁY TRƯỚC, MẪU SAU.
         //
@@ -416,6 +438,39 @@ class GuidanceEngine(private val profile: TemplateProfile) {
      * ở 1x chỉ cần đứng ~1,1m, và ảnh chụp ở đó gần như chắc chắn xấu. Vế thứ nhất
      * ép đúng công thức của dân chụp ảnh: **lùi ra một khoảng rồi zoom lên**.
      */
+    /**
+     * GỘP "máy cao/thấp" với "máy ngửa/chúc" thành MỘT câu khi chúng cùng chiều.
+     *
+     * PO: *"tôi đang quy định là nâng máy lên cao và chúc máy xuống, hạ máy xuống
+     * thấp và ngửa máy lên. Mà bạn chỉ đang cho hướng dẫn là ngửa máy, và chúc
+     * máy? rất khó hiểu"*.
+     *
+     * Đúng: với người cầm máy thật, nâng máy và chúc máy là MỘT động tác — giơ
+     * máy lên mà không chúc thì mẫu tụt khỏi khung ngay. Tách thành hai câu nối
+     * nhau thì câu sau nghe như đang sửa ngược câu trước.
+     *
+     * Chỉ gộp khi CÙNG CHIỀU (cần nâng VÀ cần chúc, hoặc cần hạ VÀ cần hất). Ngược
+     * chiều nhau thì không có động tác chung nào, để từng câu riêng.
+     */
+    private fun gopCaoVaChuc(ds: List<CriterionStatus>): List<CriterionStatus> {
+        val cao = ds.firstOrNull {
+            it.criterion == Criterion.ELEVATION && it.state == GateState.FAILING
+        } ?: return ds
+        val chuc = ds.firstOrNull {
+            it.criterion == Criterion.PITCH && it.state == GateState.FAILING
+        } ?: return ds
+        val a = cao.signedDelta ?: return ds
+        val b = chuc.signedDelta ?: return ds
+        if (a * b <= 0.0) return ds
+        return ds.mapNotNull {
+            when (it.criterion) {
+                Criterion.PITCH -> null
+                Criterion.ELEVATION -> it.copy(kemChuc = true)
+                else -> it
+            }
+        }
+    }
+
     private fun moveMetersFor(
         c: Criterion,
         t: PoseMeasurement,
@@ -582,9 +637,8 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                     d
                 }
             }
-            Criterion.SCALE -> {
-                val a = t.scale; val b = live.scale
-                if (a == null || b == null || a <= 1e-6) null else (b - a) / a
+            Criterion.SCALE -> ShotScorer.scalePair(t, live)?.let { (a, b) ->
+                if (a <= 1e-6) null else (b - a) / a
             }
             // Cùng luật "chỉ so khi cùng đường đo".
             Criterion.ROLL -> RollSource.entries.firstNotNullOfOrNull { src ->

@@ -196,7 +196,7 @@ class GocMayTest {
         // Cùng góc máy nhưng đứng xa hơn hẳn và lệch khung — vẫn phải ĐẠT.
         val live = Measurer.measure(nguoi(-35.0, 0.3, 0.65), FramingClass.FULL, minVis)
         val d = ShotScorer.deviation(tpl, live)
-        assertEquals(PitchSource.SPINE_3D, d.pitchSource)
+        assertEquals(PitchSource.GOC_MAY, d.pitchSource)
         assertNotNull(d.pitchCue)
         assertTrue("Cùng độ nghiêng thì lệch phải ~0, đo được ${d.pitchCue}", d.pitchCue!! < 1.0)
     }
@@ -206,7 +206,7 @@ class GocMayTest {
         val tpl = Measurer.measure(nguoi(-40.0), FramingClass.FULL, minVis)
         val live = Measurer.measure(nguoi(-10.0), FramingClass.FULL, minVis)
         val d = ShotScorer.deviation(tpl, live)
-        assertEquals(PitchSource.SPINE_3D, d.pitchSource)
+        assertEquals(PitchSource.GOC_MAY, d.pitchSource)
         assertEquals(30.0, d.pitchCue!!, 1.5)
     }
 

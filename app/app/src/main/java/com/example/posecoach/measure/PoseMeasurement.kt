@@ -88,29 +88,31 @@ enum class RollSource {
  */
 enum class PitchSource {
     /**
-     * TRỤC THÂN 3D — đơn vị ĐỘ. Đường mạnh nhất, xếp đầu nên được ưu tiên.
+     * GÓC MÁY THẬT so với phương ngang — đơn vị ĐỘ. Đường chính, xếp đầu.
      *
-     * Kiểm 12/09/2026: tương quan −0,700 với `R` (đường [LEGS]), tức cùng đo một
-     * đại lượng. Nhưng ăn đứt ở dáng ngồi — ảnh ngồi ghế chụp ngửa cho `R = 1,05`
-     * lẫn với ảnh đứng thẳng, còn đường này cho +39,7°.
+     * Âm = chúc xuống, dương = hất lên.
      *
-     * ⚠️ Đơn vị ĐỘ, khác hẳn hai đường dưới (tỉ lệ không đơn vị). Ngưỡng riêng
-     * trong `GuidanceConfig`.
+     * ⚠️ HAI BÊN LẤY TỪ HAI NGUỒN KHÁC NHAU, và đó là chủ ý (14/09/2026):
+     *
+     * | | Lấy từ đâu |
+     * |---|---|
+     * | Ảnh mẫu | trục thân 3D suy từ ảnh, hoặc NHÃN GÓC trong tên file |
+     * | Camera | **cảm biến trọng lực** — chính xác dưới 1° |
+     *
+     * Trước đây phía camera cũng suy từ trục thân. Video test 13/09/2026 cho thấy
+     * phép suy đó **lệch có hệ thống** trên ảnh camera thật: cầm máy thẳng chụp
+     * người đứng mà đọc ra −14° tới −23°, trong khi ảnh mẫu studio chụp thẳng
+     * đọc +4°. Hai mục máy cao/thấp và ngửa/chúc vì thế đỏ suốt với đúng kiểu
+     * ảnh cơ bản nhất. Còn ảnh chúc từ trên cao thì số đo camera co lại quanh
+     * −31° tới −45° dù người chụp đã chúc rất mạnh — nên "chúc mãi không dừng".
+     *
+     * Cảm biến không có hai bệnh đó. Tài liệu gốc cũng thiết kế đúng như vậy:
+     * *"live có IMU, template là JPEG trần phải SUY từ hình học ảnh"*.
      */
-    SPINE_3D,
+    GOC_MAY,
 
-    /** Chân so với thân. Mạnh nhưng cần thấy chân VÀ chân không chĩa vào ống kính. */
+    /** Chân so với thân. Tỉ lệ không đơn vị — đường phụ, gần như không còn dùng tới. */
     LEGS,
-
-    /**
-     * GÓC MẶT so với ống kính, từ ML Kit — đơn vị ĐỘ. Đường duy nhất cho chân dung.
-     *
-     * ⚠️ Thay cho đường `faceOverShoulders` cũ, đã ĐO VÀ LOẠI ngày 12/09/2026:
-     * tương quan với góc thật chỉ **−0,117**, và ngưỡng 0,31 của nó rộng hơn cả
-     * dải giá trị của ba ảnh selfie (−0,134 tới 0,329) nên nó **gần như luôn báo
-     * xanh**. Tiêu chí có dấu tích nhưng công nhận mọi thứ.
-     */
-    FACE_3D,
 }
 
 data class PoseMeasurement(
@@ -248,6 +250,22 @@ data class PoseMeasurement(
      * chứ không phải khớp tư thế trong không gian thật.
      */
     val poseAngles: Map<PoseGroup, List<Double>>,
+
+    /**
+     * Toạ độ dọc của mốc góc nhìn trên khung (mục 3). Một SỐ HẠNG, không phải
+     * phép đo — giữ lại để phía camera ghép với độ nghiêng từ cảm biến, và để
+     * nhãn góc trong tên file ảnh mẫu tính được mục 3 cả với ảnh chân dung.
+     */
+    val elevationAnchorY: Double? = null,
+
+    /**
+     * Chiều cao khung mặt trên khung hình — mốc cỡ mẫu DỰ PHÒNG.
+     *
+     * Dùng khi mốc chính của lớp khung hình (đầu→cổ chân) bị bỏ vì chân chĩa vào
+     * ống kính — đúng ca ảnh chụp từ trên cao. Video test 13/09/2026: template
+     * chúc từ trên xuống mất hẳn mục khung hình, và ảnh chụp ra **cụt mất đầu**.
+     */
+    val faceScale: Double? = null,
 ) {
     /** Số mục đo được. Mục không đo được sẽ bị bỏ ra khi chấm điểm, KHÔNG bị trừ điểm. */
     val measuredCount: Int
@@ -273,6 +291,9 @@ object Measurer {
      * giữa khung thì đoán sai bao nhiêu cũng không ảnh hưởng.
      */
     const val VFOV_ANH_MAU = 65.0
+
+    /** Trục thân ngắn hơn bấy nhiêu lần bề ngang vai trên ảnh thì coi là co rút. */
+    const val THAN_TOI_THIEU_THEO_VAI = 1.0
 
     /**
      * Mốc đo lệch khỏi tâm khung quá mức này thì mục 3 không tin được nữa.
@@ -326,13 +347,15 @@ object Measurer {
             scale = measureScale(frame, framing.scaleAnchor, minVisibility),
             centerX = measureCenterX(frame, framing.centerAnchor, minVisibility),
             tiltDeg = measureTiltDeg(frame, minVisibility),
+            elevationAnchorY = anchorY(frame, framing.elevationAnchor, minVisibility),
+            faceScale = faceBox(frame, minVisibility)?.height?.takeIf { it > 1e-4 },
             elevationDeg = measureElevationDeg(frame, framing, minVisibility, vFovDeg),
             yawDeg = frame.bodyYawDeg(minVisibility),
             faceYawDeg = face?.yawDeg,
             eyesOpen = face?.eyesOpen,
             anchorHeightMeters = measureAnchorHeight(frame, framing, minVisibility),
             rollDeg = measureRoll(frame, minVisibility),
-            pitchCue = measurePitchCue(frame, minVisibility, face),
+            pitchCue = measurePitchCue(frame, minVisibility),
             perspectiveIndex = measurePerspective(frame, minVisibility),
             poseAngles = measurePose(frame, framing.poseGroups, minVisibility),
         )
@@ -523,6 +546,20 @@ object Measurer {
     ): Double? {
         val tilt = measureTiltDeg(f, v) ?: return null
         val y = anchorY(f, framing.elevationAnchor, v) ?: return null
+        return gocNhin(tilt, y, vFovDeg)
+    }
+
+    /**
+     * Góc nhìn từ máy tới mốc, dùng chung cho ảnh mẫu và camera.
+     *
+     * Tách riêng vì phía camera không lấy độ nghiêng từ ảnh mà từ CẢM BIẾN, còn
+     * ảnh mẫu có thể lấy từ NHÃN GÓC trong tên file. Cả hai vẫn phải đi qua đúng
+     * một công thức và đúng một chốt chặn mốc-xa-tâm.
+     */
+    fun gocNhin(tiltDeg: Double?, anchorY: Double?, vFovDeg: Double): Double? {
+        if (tiltDeg == null || anchorY == null) return null
+        val y = anchorY
+        val tilt = tiltDeg
 
         // ⚠️ MỐC NẰM XA TÂM KHUNG THÌ BỎ MỤC NÀY — phép đoán vFOV không đỡ nổi.
         //
@@ -654,7 +691,22 @@ object Measurer {
         buildMap {
             val neck = f.neck(v)
             val root = f.root(v)
-            if (neck != null && root != null) {
+            val lsTruoc = f.at(Lm.LEFT_SHOULDER, v)
+            val rsTruoc = f.at(Lm.RIGHT_SHOULDER, v)
+            // ⚠️ THÂN BỊ CO RÚT THÌ BỎ ĐƯỜNG TRỤC THÂN (14/09/2026).
+            //
+            // Chụp từ trên cao chúc xuống, cổ và hông gần như chồng lên nhau trên
+            // ảnh. Đoạn thẳng ngắn cỡ đó thì lệch vài điểm ảnh là góc nhảy hàng chục
+            // độ. Video test: đúng ảnh chúc từ trên cao thì mục máy nghiêng đỏ suốt
+            // dù người chụp cầm máy thẳng.
+            //
+            // Người đứng bình thường có thân dài hơn bề ngang vai trên ảnh. Ngắn
+            // hơn cả bề ngang vai là đã co rút mạnh — lúc đó chỉ tin đường vai.
+            val thanCoRut = if (neck != null && root != null && lsTruoc != null && rsTruoc != null) {
+                hypot(neck.x - root.x, neck.y - root.y) <
+                    THAN_TOI_THIEU_THEO_VAI * hypot(rsTruoc.x - lsTruoc.x, rsTruoc.y - lsTruoc.y)
+            } else false
+            if (neck != null && root != null && !thanCoRut) {
                 // Lấy vector HƯỚNG LÊN (hông → cổ) để dấu đọc thuận: đầu ngả sang
                 // phải thì cổ nằm bên phải hông, dx dương.
                 val dx = neck.x - root.x
@@ -704,22 +756,15 @@ object Measurer {
      */
     private const val MIN_SHOULDER_SPAN = 0.03
 
-    private fun measurePitchCue(
-        f: PoseFrame,
-        v: Float,
-        face: FaceInfo?,
-    ): Map<PitchSource, Double> =
+    private fun measurePitchCue(f: PoseFrame, v: Float): Map<PitchSource, Double> =
         buildMap {
             // Cách 0 — TRỤC THÂN 3D, ra thẳng ĐỘ. Đặt đầu vì `pitchDeviation`
             // duyệt theo thứ tự khai báo, nên đây thành đường ưu tiên.
-            measureTiltDeg(f, v)?.let { put(PitchSource.SPINE_3D, it) }
+            measureTiltDeg(f, v)?.let { put(PitchSource.GOC_MAY, it) }
             // Cách 1 — CHÂN so với THÂN. Mạnh, nhưng bỏ khi chân chĩa vào ống kính.
             if (segmentUsable(f, v, Lm.LEFT_HIP, Lm.RIGHT_HIP, Lm.LEFT_ANKLE, Lm.RIGHT_ANKLE)) {
                 legsOverTorso(f, v)?.let { put(PitchSource.LEGS, it) }
             }
-            // Cách 2 — GÓC MẶT từ ML Kit, ra thẳng ĐỘ. Đường duy nhất chạy được
-            // với ảnh chân dung (không thấy hông thì hai cách trên đều tắt).
-            face?.pitchDeg?.let { put(PitchSource.FACE_3D, it) }
         }
 
     /** Cách 1 — dựa vào chân. Chính xác hơn vì hai đoạn cách xa nhau theo chiều sâu. */

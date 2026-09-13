@@ -187,7 +187,6 @@ class CaptureViewModel : ViewModel() {
     fun onLiveFace(info: FaceInfo?) {
         liveFace = info
         liveFaceAtMs = android.os.SystemClock.elapsedRealtime()
-        _state.update { it.copy(debugFacePitchDeg = info?.pitchDeg) }
     }
 
     fun onZoomChanged(ratio: Float) {
@@ -232,7 +231,10 @@ class CaptureViewModel : ViewModel() {
         // ⚠️ HỒ SƠ ẢNH MẪU chốt Ở ĐÂY, một lần duy nhất. Nó quyết định luôn
         // **những tiêu chí nào được chấm** cho ảnh mẫu này — ảnh chân dung cận sẽ
         // không có mục nào về chân, và hướng dẫn realtime sẽ không bao giờ nhắc tới.
-        val profile = TemplateProfile.from(frame, framing, minVisibility, face)
+        val profile = TemplateProfile.from(
+            frame, framing, minVisibility, face,
+            gocMayNhan = com.example.posecoach.media.MediaLibrary.gocMayTheoNhan(name),
+        )
         templateProfile = profile
         // Engine phai tao SAU khi co ho so, vi no doc ho so de biet muc nao ap dung.
         engine = GuidanceEngine(profile)
@@ -293,21 +295,33 @@ class CaptureViewModel : ViewModel() {
         // hinh cua anh mau. Day la bat bien so 1 cua du an: huong dan realtime va
         // cham diem sau khi quay phai doc tu cung mot phep do.
         val live = if (detected && profile != null) {
-            Measurer.measure(
+            val vFov = vFovDeg ?: Measurer.VFOV_ANH_MAU
+            val doAnh = Measurer.measure(
                 frame, profile.framing, minVisibility,
                 face = liveFace
                     .takeIf {
                         android.os.SystemClock.elapsedRealtime() - liveFaceAtMs < FACE_TOI_DA_MS
                     }
                     // ⚠️ CAMERA TRƯỚC: khung xương đã bị lật ở trên, nhưng ML Kit
-                    // chạy trên ảnh THÔ nên góc mặt CHƯA lật. Để nguyên là hai
-                    // đường đo của cùng một mục nằm ở hai hệ trái ngược nhau —
-                    // góc thân âm trong khi góc mặt dương cho cùng một tư thế.
-                    //
-                    // Lật ngang thì góc quay trái/phải đổi dấu; góc ngửa/chúc thì
-                    // KHÔNG đổi (gương ngang không làm đầu ngẩng hay cúi khác đi).
+                    // chạy trên ảnh THÔ nên góc mặt CHƯA lật. Lật ngang thì góc quay
+                    // trái/phải đổi dấu.
                     ?.let { if (mode.camTruoc) it.copy(yawDeg = it.yawDeg?.unaryMinus()) else it },
-                vFovDeg = vFovDeg ?: Measurer.VFOV_ANH_MAU,
+                vFovDeg = vFov,
+            )
+            // ⚠️ GÓC MÁY PHÍA CAMERA LẤY TỪ CẢM BIẾN, KHÔNG SUY TỪ ẢNH (14/09/2026).
+            //
+            // Video test 13/09/2026: cầm máy thẳng chụp người đứng mà phép suy từ
+            // trục thân đọc ra −14° tới −23° — trong khi ảnh mẫu chụp thẳng đọc +4°.
+            // Hai mục máy cao/thấp và ngửa/chúc đỏ suốt với kiểu ảnh cơ bản nhất.
+            // Cảm biến trọng lực đo đúng thứ cần đo, sai số dưới 1°.
+            //
+            // Camera trước nhìn NGƯỢC hướng camera sau, nên dấu góc đảo lại: giơ máy
+            // trên đầu cho camera trước chúc xuống mặt thì camera sau đang ngửa lên.
+            val camBien = devicePitchDeg?.let { if (mode.camTruoc) -it else it }
+            if (camBien == null) doAnh else doAnh.copy(
+                tiltDeg = camBien,
+                pitchCue = doAnh.pitchCue + (com.example.posecoach.measure.PitchSource.GOC_MAY to camBien),
+                elevationDeg = Measurer.gocNhin(camBien, doAnh.elevationAnchorY, vFov),
             )
         } else null
 
@@ -318,9 +332,12 @@ class CaptureViewModel : ViewModel() {
             if (t == null || l == null) null else {
                 fun f(v: Double?) = v?.let { "%+.0f".format(it) } ?: "--"
                 fun g(v: Double?) = v?.let { "%.2f".format(it) } ?: "--"
+                // m4: số sau là CẢM BIẾN. cỡ: có chữ "m" là đang so bằng khung mặt.
+                val coM = t.scale == null && t.faceScale != null
                 "m3 " + f(t.elevationDeg) + "/" + f(l.elevationDeg) +
                     "  m4 " + f(t.tiltDeg) + "/" + f(l.tiltDeg) +
-                    "  cỡ " + g(t.scale) + "/" + g(l.scale) +
+                    "  cỡ" + (if (coM) "m " else " ") +
+                    (if (coM) g(t.faceScale) + "/" + g(l.faceScale) else g(t.scale) + "/" + g(l.scale)) +
                     "  vFOV " + (vFovDeg?.let { "%.0f".format(it) } ?: "65?")
             }
         }

@@ -208,12 +208,20 @@ class RollCriterionTest {
     }
 
     @Test
-    fun `may dang thang thi nhac MAU chu khong bat xoay may`() {
-        // Cảm biến nói máy không có lỗi → phần nghiêng còn lại là do dáng của mẫu.
-        // Đây là thứ ẢNH KHÔNG TỰ BIẾT ĐƯỢC — giá trị thật của cảm biến nằm ở đây.
+    fun `du may dang thang van noi ve MAY, khong do cho mau`() {
+        // ⚠️ ĐỔI CHỦ Ý 14/09/2026 — trước đây test này đòi nói với MẪU.
+        //
+        // Lý do cũ nghe hợp lý: cảm biến báo máy thẳng thì phần nghiêng còn lại
+        // là do mẫu ngả người. Nhưng nhãn của mục là "Máy nghiêng", còn câu nhắc
+        // lại là "Bảo mẫu đứng thẳng người lại". Video test 13/09/2026, PO hỏi thẳng:
+        // *"người chụp máy nghiêng là như nào?"* — nhãn nói một đằng, câu nói một
+        // nẻo, người dùng không biết phải làm gì.
+        //
+        // Dù nguyên nhân là gì, người cầm máy luôn sửa được bằng cách xoay máy.
         val t = cue(signed = 12.0, fromDevice = false)
         assertNotNull(t)
-        assertTrue("Phải nói với mẫu, nhận được: $t", t!!.contains("mẫu"))
+        assertTrue("Phải nói về máy, nhận được: $t", t!!.contains("máy"))
+        assertTrue("Không được đổ cho mẫu, nhận được: $t", !t.contains("mẫu"))
     }
 
     @Test

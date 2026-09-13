@@ -599,25 +599,6 @@ fun CaptureScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                 }
-                // ⚠️ TẠM — xem `CaptureUiState.debugFacePitchDeg`. Gỡ sau khi
-                // buổi test xác nhận `headEulerAngleX` chạy đúng chiều.
-                state.debugDo?.let { d ->
-                    Text(
-                        d,
-                        color = Color(0xCCFFFFFF), fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
-                    )
-                }
-                state.debugFacePitchDeg?.let { g ->
-                    Text(
-                        "góc mặt %+.0f°".format(g),
-                        color = Color(0xCCFFFFFF), fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(bottom = 4.dp),
-                    )
-                }
                 state.templateError?.let {
                     Text(
                         "⚠ $it", color = Color(0xFFFF8A80), fontSize = 12.sp,

@@ -110,7 +110,10 @@ fun HomeScreen(
                     // chối thì chẳng dùng tới, chạy chỉ tốn thời gian chờ.
                     val fa = FaceAnalyzer()
                     val face = try { fa.analyze(bmp) } finally { fa.close() }
-                    TemplateProfile.from(frame, v.framing, TemplateGate.CORE_VIS, face)
+                    TemplateProfile.from(
+                        frame, v.framing, TemplateGate.CORE_VIS, face,
+                        gocMayNhan = MediaLibrary.gocMayTheoNhan(file.nameWithoutExtension),
+                    )
                 } else null
                 val g = if (frame != null && v is TemplateVerdict.Accepted) {
                     PoseDescriber.describe(frame, TemplateGate.CORE_VIS) to

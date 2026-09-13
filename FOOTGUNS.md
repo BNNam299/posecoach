@@ -2332,3 +2332,113 @@ mốc trong khung.
 
 ⚠️ Đây cũng là lý do đừng vội hạ `MOC_LECH_TAM_TOI_DA` xuống cho "đo được nhiều
 hơn". Đo được nhiều hơn mà sai thì tệ hơn không đo.
+
+---
+
+## 80. Góc máy phía CAMERA phải lấy từ cảm biến, không suy từ trục thân
+
+**Sai:** dùng cùng phép suy trục thân 3D cho cả ảnh mẫu lẫn khung camera.
+
+**Đúng:** ảnh mẫu suy từ ảnh (hoặc nhãn trong tên file), camera lấy **cảm biến
+trọng lực**. Camera trước thì **đảo dấu**.
+
+**Vì sao:** video test 13/09/2026, đọc từ dòng số đo trên màn hình:
+
+```
+chụp thẳng toàn thân   ảnh mẫu +4°    camera −14 … −23°   (cầm máy thẳng)
+chúc từ trên cao       ảnh mẫu −53°   camera −31 … −59°   (đã chúc rất mạnh)
+```
+
+Phép suy trục thân **lệch có hệ thống** trên ảnh camera thật — cầm thẳng mà đọc ra
+âm hai chục độ. Hệ quả: đúng kiểu ảnh cơ bản nhất (chụp thẳng) lại đỏ hai mục máy
+cao/thấp và ngửa/chúc suốt buổi. Cảm biến đo đúng thứ cần đo, sai số dưới 1°.
+
+Tài liệu gốc thiết kế đúng như vậy từ đầu: *"live có IMU, template là JPEG trần
+phải SUY từ hình học ảnh"*. PO đã cho phép pha trộn nguồn.
+
+⚠️ Camera trước nhìn ngược hướng camera sau: giơ máy trên đầu cho camera trước chúc
+xuống mặt thì cảm biến (định nghĩa theo camera sau) báo ngửa lên. Quên đảo dấu là
+selfie hướng dẫn ngược hoàn toàn.
+
+---
+
+## 81. Ngưỡng góc máy không được hẹp hơn sai số của phía ẢNH MẪU
+
+**Sai:** ngưỡng 5-6° theo bảng tài liệu v3.
+
+**Đúng:** 12° cho ngửa/chúc, 10° cho cao/thấp.
+
+**Vì sao:** bảng v3 giả định cả hai bên đo chính xác cỡ vài độ. Phía ảnh mẫu là suy
+đoán sai số cỡ 10°. Video: ảnh chúc từ trên cao, người chụp dao động −31 … −59°
+quanh đích −53°; ngưỡng 5° chỉ cho qua đoạn −48 … −58 mà tay cầm không giữ nổi —
+nên *"chúc mãi không dừng"* và **không bao giờ tự chụp được**.
+
+Chính tài liệu gốc cũng chỉ đòi *"đúng bậc hoặc lệch 1 bậc kề"* trên thang 5 bậc —
+tức dung sai cỡ ±12°. 12° vẫn đủ tách ba kiểu ảnh: thẳng ~0°, chúc −35 … −55°,
+ngửa +25 … +40°.
+
+---
+
+## 82. Góc NGỬA/CHÚC CỦA MẶT không mang thông tin góc máy với ảnh selfie
+
+**Sai:** dùng `headEulerAngleX` của ML Kit làm góc máy cho ảnh chân dung.
+
+**Đúng:** bỏ. Ảnh selfie gán nhãn góc trong tên file (`selfie-tren-…`).
+
+**Vì sao:** video test 13/09/2026, template selfie chụp từ trên cao mà góc mặt chỉ
+dao động **−3° tới +2°**. Người chụp selfie luôn **nhìn vào máy**, nên góc giữa mặt
+và ống kính gần như bằng 0 dù máy ở trên đầu hay ngang ngực. Nó đo hướng nhìn, không
+đo vị trí máy — và vì luôn ~0 nên nó **báo xanh cho mọi thứ**.
+
+Đây là đường thứ ba đo và loại cho góc máy ảnh selfie (sau tỉ lệ mặt/vai −0,117 và
+đường tai–mắt +0,128). Tài liệu gốc đã tính trước: *"template confidence thấp PHẢI
+được người gán tay"*.
+
+Kèm theo: ML Kit trả về chế độ FAST — ACCURATE chỉ cần cho góc X, giờ không dùng.
+
+---
+
+## 83. Bắt lùi mà không có điểm dừng
+
+**Sai:** mục chỗ đứng cứ còn lệch phối cảnh là bảo lùi.
+
+**Đúng:** đã lùi tới khoảng cách hợp lý của lớp khung hình (`minStandoffMeters`, toàn
+thân 3m) thì thôi — trừ ảnh chụp sát có chủ ý.
+
+**Vì sao:** video test, ảnh chụp thẳng toàn thân: người chụp lùi tới khi mẫu chỉ còn
+chiếm **23-25%** chiều cao khung mà vẫn bị bảo *"lùi lại 1 bước"*. Ảnh mẫu studio chụp
+bằng ống dài từ rất xa — trong phòng không lùi tới được, nên câu đó không bao giờ tắt.
+
+Kết quả chụp ra là một người bé tí giữa căn phòng bừa bộn, trong khi ảnh mẫu người
+chiếm ba phần tư khung. Đúng cách PO mô tả: *"chụp từ xa zoom lại"* — lùi vừa đủ,
+phần còn lại để zoom lo.
+
+---
+
+## 84. Mất mốc cỡ mẫu thì ảnh ra cụt đầu
+
+**Sai:** chân chĩa vào ống kính (ảnh chụp từ trên cao) → mốc đầu→cổ chân bị bỏ → mục
+khung hình bị bỏ luôn.
+
+**Đúng:** lùi về **chiều cao khung mặt**. Chọn mốc theo **ảnh mẫu**, không theo khung
+hình hiện tại (FOOTGUNS 77).
+
+**Vì sao:** video test, ảnh chúc từ trên cao: không còn mục nào giữ cỡ mẫu trong khung,
+và ảnh chụp ra **mất hẳn cái đầu** — thứ nổi bật nhất của ảnh mẫu.
+
+---
+
+## 85. Nhãn "Máy nghiêng" mà câu nhắc lại bảo mẫu đứng thẳng
+
+**Sai:** cảm biến báo máy thẳng thì nói *"Bảo mẫu đứng thẳng người lại, đang hơi ngả
+sang trái"*.
+
+**Đúng:** luôn nói về máy — *"Xoay máy theo chiều kim đồng hồ…"*.
+
+**Vì sao:** PO test: *"người chụp máy nghiêng là như nào?"*. Nhãn nói máy, câu nói
+người, người dùng không biết phải làm gì. Dù nguyên nhân là gì, người cầm máy luôn
+sửa được bằng cách xoay máy.
+
+Kèm theo: chụp từ trên cao thì cổ và hông chồng lên nhau trên ảnh, trục thân quá ngắn
+để đo độ nghiêng — bỏ trục thân, chỉ dùng đường vai. Thiếu chặn này thì mục máy
+nghiêng đỏ suốt với ảnh chúc từ trên cao.

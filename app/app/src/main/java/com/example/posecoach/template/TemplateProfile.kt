@@ -3,6 +3,7 @@ package com.example.posecoach.template
 import com.example.posecoach.face.FaceInfo
 import com.example.posecoach.measure.CropQuality
 import com.example.posecoach.measure.Measurer
+import com.example.posecoach.measure.PitchSource
 import com.example.posecoach.measure.PoseMeasurement
 import com.example.posecoach.pose.FramingClass
 import com.example.posecoach.pose.PoseFrame
@@ -356,8 +357,23 @@ data class TemplateProfile(
             minVisibility: Float,
             /** Số liệu khuôn mặt của ẢNH MẪU. `null` = không thấy mặt hoặc chưa chạy. */
             face: FaceInfo? = null,
+            /**
+             * Góc máy gán tay trong TÊN FILE ảnh mẫu, độ. Xem
+             * `MediaLibrary.gocMayTheoNhan`. `null` = không có nhãn.
+             *
+             * Có nhãn thì nhãn THẮNG phép suy từ ảnh. Và nhờ nó mà ảnh selfie —
+             * vốn không suy được góc máy từ ảnh — có được mục 3 và mục 4.
+             */
+            gocMayNhan: Double? = null,
         ): TemplateProfile {
-            val m = Measurer.measure(frame, framing, minVisibility, face)
+            val doAnh = Measurer.measure(frame, framing, minVisibility, face)
+            val m = if (gocMayNhan == null) doAnh else doAnh.copy(
+                tiltDeg = gocMayNhan,
+                pitchCue = doAnh.pitchCue + (PitchSource.GOC_MAY to gocMayNhan),
+                elevationDeg = Measurer.gocNhin(
+                    gocMayNhan, doAnh.elevationAnchorY, Measurer.VFOV_ANH_MAU,
+                ),
+            )
             val active = mutableSetOf<Criterion>()
             val skipped = linkedMapOf<Criterion, String>()
 
@@ -370,7 +386,9 @@ data class TemplateProfile(
                 "không thấy rõ hai vai trong ảnh mẫu nên không biết mẫu quay hướng nào",
             )
             check(
-                Criterion.SCALE, m.scale != null,
+                // Mốc chính hỏng (chân chĩa vào ống kính) thì dùng khung mặt — xem
+                // `PoseMeasurement.faceScale`.
+                Criterion.SCALE, m.scale != null || m.faceScale != null,
                 "không đo được ${framing.scaleAnchorLabel} trong ảnh mẫu nên không biết nên đứng xa hay gần",
             )
             check(
