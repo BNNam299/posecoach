@@ -2442,3 +2442,31 @@ sửa được bằng cách xoay máy.
 Kèm theo: chụp từ trên cao thì cổ và hông chồng lên nhau trên ảnh, trục thân quá ngắn
 để đo độ nghiêng — bỏ trục thân, chỉ dùng đường vai. Thiếu chặn này thì mục máy
 nghiêng đỏ suốt với ảnh chúc từ trên cao.
+
+---
+
+## 86. Ảnh tự nhập không mang kiểu chụp lẫn góc máy — mở sai camera
+
+**Sai:** chép ảnh người dùng chọn vào thư viện dưới tên `toi-chon-<giờ>.jpg` rồi dùng
+luôn.
+
+**Đúng:** trong hộp thoại kiểm ảnh, hỏi **kiểu chụp** (người khác / selfie / gương)
+và — nếu ảnh không tự đo được góc máy — **máy đặt ở đâu** (trên cao / ngang / dưới
+thấp). Ghi cả hai VÀO TÊN FILE bằng `MediaLibrary.ganNhan`.
+
+**Vì sao:** ảnh cài sẵn mang hai thông tin đó trong tên (`selfie-tren-…`). Ảnh tự nhập
+thì không, nên:
+
+1. Không có tiền tố `selfie-` → bị coi là ảnh người khác chụp → **mở camera SAU**,
+   dù người dùng vừa nhập một tấm selfie.
+2. Ảnh selfie **không suy được góc máy từ ảnh** (FOOTGUNS 82, ba cách đều đã đo và
+   loại) → mất hẳn mục máy cao/thấp và ngửa/chúc.
+
+Ghi vào tên file thay vì kho lưu riêng: ảnh tự nhập chạy **đúng một đường code** như
+ảnh cài sẵn, không có nhánh riêng nào để lệch nhau, và nhớ vĩnh viễn.
+
+⚠️ Đổi ý gán lại thì phải **lột nhãn cũ** trước — không thì thành `mirror-selfie-tren-…`
+và đọc tiền tố ra sai nhóm.
+
+⚠️ Góc máy **không đoán sẵn**, bắt chọn. Kiểu chụp thì đoán sẵn theo khung hình (chân
+dung → selfie) nhưng hiện rõ trên nút để đổi được — đoán hiện ra khác hẳn đoán ngầm.

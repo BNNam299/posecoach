@@ -122,12 +122,62 @@ object MediaLibrary {
      * thấy. `null` = không có nhãn.
      */
     fun gocMayTheoNhan(nameWithoutExtension: String): Double? =
-        when (tuDauSauTienTo(nameWithoutExtension)) {
-            "tren" -> -35.0
-            "ngang" -> 0.0
-            "duoi" -> 25.0
-            else -> null
+        GocMayNhan.cua(nameWithoutExtension)?.doNghieng
+
+    /** Ba mức góc máy gán tay. Xem [gocMayTheoNhan]. */
+    enum class GocMayNhan(val tu: String, val nhan: String, val doNghieng: Double) {
+        TREN("tren", "Máy trên cao, chúc xuống", -35.0),
+        NGANG("ngang", "Máy ngang tầm", 0.0),
+        DUOI("duoi", "Máy thấp, hất lên", 25.0);
+
+        companion object {
+            fun cua(nameWithoutExtension: String): GocMayNhan? {
+                val tu = tuDauSauTienTo(nameWithoutExtension)
+                return entries.firstOrNull { it.tu == tu }
+            }
         }
+    }
+
+    /** Ảnh người dùng tự nhập — tên do [ganNhan] hoặc hàm chép ảnh đặt. */
+    fun laAnhNhap(file: File): Boolean = file.nameWithoutExtension.contains(TIEN_TO_NHAP)
+
+    /** Gốc tên của ảnh tự nhập, dùng khi chép vào thư viện. */
+    const val TIEN_TO_NHAP = "toi-chon-"
+
+    /**
+     * GÁN KIỂU CHỤP VÀ GÓC MÁY cho ảnh tự nhập, bằng cách ĐỔI TÊN FILE.
+     *
+     * ## Vì sao ảnh tự nhập bắt buộc phải có bước này
+     *
+     * Ảnh cài sẵn mang sẵn thông tin trong tên (`selfie-tren-…`). Ảnh tự nhập được
+     * chép vào dưới tên `toi-chon-<giờ>.jpg` — không có gì cả. Hậu quả trước đây:
+     *
+     * 1. **Sai camera.** Không có tiền tố `selfie-` nên app coi là ảnh người khác
+     *    chụp và mở CAMERA SAU, dù người dùng vừa nhập một tấm selfie.
+     * 2. **Selfie mất hai mục góc máy.** Không suy được góc máy từ ảnh selfie (đã
+     *    đo và loại ba cách, xem [gocMayTheoNhan]), và không có nhãn để thay.
+     *
+     * ## Vì sao lưu vào tên file
+     *
+     * Cùng một cơ chế với ảnh cài sẵn, nên từ đây trở đi ảnh tự nhập chạy **đúng
+     * một đường code** như ảnh cài sẵn — không có nhánh riêng nào để lệch nhau. Và
+     * không cần thêm kho lưu trữ nào: đổi tên xong là nhớ vĩnh viễn.
+     *
+     * @return file sau khi đổi tên; đổi tên thất bại thì trả lại file cũ.
+     */
+    fun ganNhan(file: File, kind: TemplateKind, goc: GocMayNhan?): File {
+        val goc0 = file.nameWithoutExtension
+        // Lột mọi tiền tố nhóm và nhãn góc cũ, chỉ giữ phần gốc "toi-chon-<giờ>".
+        val loiTen = goc0.substring(goc0.indexOf(TIEN_TO_NHAP).coerceAtLeast(0))
+        val tenMoi = buildString {
+            append(kind.prefix)
+            if (goc != null) append(goc.tu).append('-')
+            append(loiTen)
+        } + "." + file.extension
+        if (tenMoi == file.name) return file
+        val dich = File(file.parentFile, tenMoi)
+        return if (file.renameTo(dich)) dich else file
+    }
 
     private fun tuDauSauTienTo(ten: String): String {
         val n = ten.lowercase()
@@ -138,7 +188,7 @@ object MediaLibrary {
 
     private fun boNhanGoc(tenSauTienTo: String): String {
         val tu = tenSauTienTo.substringBefore('-').lowercase()
-        return if (tu in setOf("tren", "ngang", "duoi") && tenSauTienTo.contains('-')) {
+        return if (GocMayNhan.entries.any { it.tu == tu } && tenSauTienTo.contains('-')) {
             tenSauTienTo.substringAfter('-')
         } else tenSauTienTo
     }
