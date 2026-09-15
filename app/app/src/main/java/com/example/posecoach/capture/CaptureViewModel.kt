@@ -294,6 +294,9 @@ class CaptureViewModel : ViewModel() {
         // ⚠️ DUNG CHINH `Measurer.measure` ma anh mau da di qua, voi DUNG lop khung
         // hinh cua anh mau. Day la bat bien so 1 cua du an: huong dan realtime va
         // cham diem sau khi quay phai doc tu cung mot phep do.
+        // Góc máy SUY TỪ ẢNH của chính khung camera — chỉ để hiện cạnh số cảm biến,
+        // xem `CaptureUiState.debugGocMay`. Không dùng để chấm.
+        var gocAnhLive: Double? = null
         val live = if (detected && profile != null) {
             val vFov = vFovDeg ?: Measurer.VFOV_ANH_MAU
             val doAnh = Measurer.measure(
@@ -318,12 +321,20 @@ class CaptureViewModel : ViewModel() {
             // Camera trước nhìn NGƯỢC hướng camera sau, nên dấu góc đảo lại: giơ máy
             // trên đầu cho camera trước chúc xuống mặt thì camera sau đang ngửa lên.
             val camBien = devicePitchDeg?.let { if (mode.camTruoc) -it else it }
+            gocAnhLive = doAnh.tiltDeg
             if (camBien == null) doAnh else doAnh.copy(
                 tiltDeg = camBien,
                 pitchCue = doAnh.pitchCue + (com.example.posecoach.measure.PitchSource.GOC_MAY to camBien),
                 elevationDeg = Measurer.gocNhin(camBien, doAnh.elevationAnchorY, vFov),
             )
         } else null
+
+        // ⚠️ TẠM — xem `CaptureUiState.debugGocMay`.
+        val dbgGoc = run {
+            fun f(v: Double?) = v?.let { "%+.0f°".format(it) } ?: "--"
+            val camBien = devicePitchDeg?.let { if (mode.camTruoc) -it else it }
+            "GÓC MÁY   cảm biến " + f(camBien) + "   ·   suy từ ảnh " + f(gocAnhLive)
+        }
 
         // ⚠️ TẠM — xem `CaptureUiState.debugDo`.
         val dbg = run {
@@ -377,6 +388,7 @@ class CaptureViewModel : ViewModel() {
                 readyToPose = result?.readyToPose == true,
                 stableForMs = result?.stableForMs ?: 0L,
                 debugDo = dbg,
+                debugGocMay = dbgGoc,
             )
         }
     }

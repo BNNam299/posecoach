@@ -66,6 +66,23 @@ data class CaptureUiState(
      */
     val debugDo: String? = null,
 
+    /**
+     * ⚠️ TẠM — góc máy đo bằng CẢM BIẾN đặt cạnh góc máy SUY TỪ ẢNH của cùng khung
+     * hình, chữ to để đọc được khi đang cầm máy (14/09/2026).
+     *
+     * Trả lời đúng một câu hỏi còn treo: phép suy góc từ trục thân có lệch trên
+     * ảnh chụp bằng điện thoại không. Video test 13/09/2026 cầm máy thẳng mà phép
+     * suy đọc −14 … −23°, nhưng lúc đó không có số cảm biến để biết người chụp có
+     * thật sự đang chúc hay không.
+     *
+     * - Hai số gần nhau → phép suy đúng.
+     * - Số suy từ ảnh thấp hơn đều một khoảng → bị lệch, phải hiệu chỉnh — nếu không
+     *   ảnh chụp bằng điện thoại mà người dùng tự nhập sẽ bị hướng dẫn sai góc.
+     *
+     * Gỡ sau khi có kết quả.
+     */
+    val debugGocMay: String? = null,
+
     /** Anh mau la anh doc hay ngang. `null` = chua biet. */
     val templatePortrait: Boolean? = null,
 

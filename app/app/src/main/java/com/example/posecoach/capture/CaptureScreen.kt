@@ -599,6 +599,29 @@ fun CaptureScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                 }
+                // ⚠️ TẠM — hai dòng số đo, xem `CaptureUiState.debugGocMay` và `debugDo`.
+                state.debugGocMay?.let { g ->
+                    Text(
+                        g,
+                        color = Color.White, fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0x99000000))
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                    Spacer(Modifier.height(4.dp))
+                }
+                state.debugDo?.let { d ->
+                    Text(
+                        d,
+                        color = Color(0xCCFFFFFF), fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                    )
+                }
                 state.templateError?.let {
                     Text(
                         "⚠ $it", color = Color(0xFFFF8A80), fontSize = 12.sp,

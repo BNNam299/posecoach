@@ -231,6 +231,9 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 walkInsteadOfZoom = c == Criterion.SCALE && !profile.framing.seesLegs,
                 chupSat = profile.chupSat,
                 rollFromDevice = rollFromDevice,
+                gocMauKhongCoCaoThap = if (c == Criterion.PITCH && Criterion.ELEVATION !in applicable) {
+                    t.tiltDeg
+                } else null,
                 tuChup = mode.tuChup,
                 latGuong = mode.latGuong,
                 mayNguocChieu = mode.mayNguocChieu,

@@ -187,4 +187,61 @@ class VideoTest1309Test {
         assertFalse("Selfie mà vẫn bảo mẫu: $t", t.contains("Bảo mẫu"))
         assertTrue(t, t.startsWith("Gập tay"))
     }
+
+    // =================================================================
+    // Ảnh mẫu góc gắt mà không có mục máy cao/thấp
+    // =================================================================
+
+    private val bandGoc = Band(accept = 12.0, enter = 18.0, unlock = 36.0, actionFloor = 3.0)
+
+    @Test
+    fun `anh mau chuc gat khong co muc cao thap thi van bao NANG MAY`() {
+        // Đúng ca `kinh-ram-tai-nghe`: người nằm quá xa tâm nên mục cao/thấp tự bỏ.
+        // Video test: câu cũ chỉ nói "chúc máy xuống", người chụp chúc từ ngang
+        // ngực mãi mà không tới được góc −53°.
+        val t = cau(
+            CriterionStatus(
+                Criterion.PITCH, GateState.FAILING, 20.0, 20.0, bandGoc,
+                gocMauKhongCoCaoThap = -53.0,
+            )
+        )
+        assertTrue(t, t.contains("Nâng máy") && t.contains("chúc xuống"))
+    }
+
+    @Test
+    fun `anh mau ngua gat khong co muc cao thap thi bao HA MAY`() {
+        val t = cau(
+            CriterionStatus(
+                Criterion.PITCH, GateState.FAILING, 20.0, -20.0, bandGoc,
+                gocMauKhongCoCaoThap = 40.0,
+            )
+        )
+        assertTrue(t, t.contains("Hạ máy") && t.contains("hất lên"))
+    }
+
+    @Test
+    fun `anh mau goc nhe thi chi noi chuc hoac hat, khong bat doi do cao`() {
+        val t = cau(
+            CriterionStatus(
+                Criterion.PITCH, GateState.FAILING, 15.0, 15.0, bandGoc,
+                gocMauKhongCoCaoThap = -8.0,
+            )
+        )
+        assertFalse(t, t.contains("Nâng máy"))
+        assertTrue(t, t.contains("Chúc máy"))
+    }
+
+    @Test
+    fun `chuc qua tay so voi anh mau goc gat thi chi bao hat lai, khong bao ha may`() {
+        // Ảnh mẫu chúc −53°, người chụp chúc tới −75°: máy vẫn phải ở trên cao, chỉ
+        // cần bớt chúc. Bảo "hạ máy" lúc này là phá thứ đã đúng.
+        val t = cau(
+            CriterionStatus(
+                Criterion.PITCH, GateState.FAILING, 22.0, -22.0, bandGoc,
+                gocMauKhongCoCaoThap = -53.0,
+            )
+        )
+        assertFalse(t, t.contains("Hạ máy"))
+        assertTrue(t, t.contains("Hất máy"))
+    }
 }

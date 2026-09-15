@@ -63,6 +63,11 @@ data class CriterionStatus(
      */
     val kemChuc: Boolean = false,
     /**
+     * Góc máy của ẢNH MẪU, độ — chỉ đặt cho mục ngửa/chúc khi ảnh mẫu KHÔNG có
+     * mục máy cao/thấp. Xem nhánh `Criterion.PITCH` trong [cueTextFor].
+     */
+    val gocMauKhongCoCaoThap: Double? = null,
+    /**
      * Mục này ÁP DỤNG cho ảnh mẫu nhưng khung hình hiện tại **không đo được**, và
      * đã như vậy đủ lâu để cần giải thích.
      *
@@ -244,6 +249,9 @@ class CuePresenter {
  * nên hình không bị lật gương: trái/phải trong khung đúng bằng trái/phải của
  * người đang cầm máy.
  */
+/** Ảnh mẫu chúc/ngửa gắt từ mức này trở lên thì máy buộc phải đổi độ cao, không chỉ đổi góc. */
+private const val GOC_GAT_DEG = 20.0
+
 internal fun cueTextFor(status: CriterionStatus): String {
     val signed = status.signedDelta ?: 0.0
 
@@ -461,9 +469,26 @@ internal fun cueTextFor(status: CriterionStatus): String {
         // MỤC 4 — TINH CHỈNH. Tới đây độ cao đặt máy đã đúng (mục 3 ưu tiên cao
         // hơn), nên chỉ còn nghiêng trục ống kính thêm chút. Chữ "thêm" là cố ý:
         // nó nói cho người dùng biết họ đang sửa nốt chứ không phải làm lại.
-        Criterion.PITCH -> when {
-            signed > 0 -> "Chúc máy xuống thêm một chút, đến khi tích sáng"
-            else -> "Hất máy lên thêm một chút, đến khi tích sáng"
+        Criterion.PITCH -> {
+            // ⚠️ ẢNH MẪU GÓC GẮT MÀ KHÔNG CÓ MỤC MÁY CAO/THẤP (14/09/2026).
+            //
+            // Mục cao/thấp tự bỏ khi người trong ảnh mẫu nằm quá xa tâm khung — đúng
+            // ca ảnh chúc thẳng từ trên đầu (`kinh-ram-tai-nghe`). Lúc đó chỉ còn mục
+            // này, và câu cũ chỉ nói "chúc máy xuống". Video test: người chụp chúc
+            // từ ngang ngực mãi mà không lên tới được góc đó.
+            //
+            // Chúc gắt tới −20° trở xuống thì máy BẮT BUỘC phải ở trên cao — không ai
+            // chúc được như thế từ ngang ngực mà vẫn giữ người trong khung. Nên nói
+            // luôn cả động tác nâng máy, đúng câu PO quy định. Ngửa gắt thì ngược lại.
+            val g = status.gocMauKhongCoCaoThap
+            when {
+                g != null && g <= -GOC_GAT_DEG && signed > 0 ->
+                    "Nâng máy cao hơn rồi chúc xuống, đến khi tích sáng"
+                g != null && g >= GOC_GAT_DEG && signed < 0 ->
+                    "Hạ máy thấp xuống rồi hất lên, đến khi tích sáng"
+                signed > 0 -> "Chúc máy xuống thêm một chút, đến khi tích sáng"
+                else -> "Hất máy lên thêm một chút, đến khi tích sáng"
+            }
         }
 
         // Mục cuối cùng và nhẹ nhất — không bao giờ chặn việc chụp.
