@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -174,17 +176,34 @@ private fun ChonNhan(
         Text("Máy đặt ở đâu khi chụp?", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Ds.text)
         Text(
             "App không tự đoán được từ ảnh chân dung, nên cần bạn chọn để hướng dẫn " +
-                "đúng việc nâng/hạ và chúc/hất máy.",
+                "đúng việc nâng/hạ và chúc/hất máy. Nhìn ảnh theo gợi ý dưới mỗi mục.",
             fontSize = 12.sp, color = Ds.textMuted,
         )
         Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-                GocMayNhan.TREN to "Trên cao",
-                GocMayNhan.NGANG to "Ngang tầm",
-                GocMayNhan.DUOI to "Dưới thấp",
-            ).forEach { (g, ten) ->
-                FilterChip(selected = goc == g, onClick = { onGoc(g) }, label = { Text(ten, fontSize = 13.sp) })
+        // KHUNG QUY CHUẨN nhận biết góc máy bằng mắt — xem DIEM_YEU_GOC_MAY_SELFIE.md.
+        // Người dùng chọn, app không đoán: đoán bằng mặt/cổ/vai chỉ trúng 59%.
+        listOf(
+            Triple(GocMayNhan.TREN, "Trên cao, chúc xuống", "Thấy đỉnh đầu hoặc sàn nhà · cằm che gần hết cổ · mắt ngước lên nhìn máy"),
+            Triple(GocMayNhan.NGANG, "Ngang tầm mắt", "Nền là tường · mặt, cổ, vai cân đối · mắt nhìn thẳng"),
+            Triple(GocMayNhan.DUOI, "Dưới thấp, hất lên", "Thấy trần nhà hoặc bầu trời · thấy dưới cằm · mắt liếc xuống nhìn máy"),
+        ).forEach { (g, ten, goiY) ->
+            val chon = goc == g
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 3.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (chon) Ds.primary.copy(alpha = 0.10f) else Ds.surfaceMuted)
+                    .selectable(selected = chon, role = Role.RadioButton, onClick = { onGoc(g) })
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = chon, onClick = null)
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(ten, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ds.text)
+                    Text(goiY, fontSize = 12.sp, color = Ds.textMuted)
+                }
             }
         }
         if (goc == null) {
