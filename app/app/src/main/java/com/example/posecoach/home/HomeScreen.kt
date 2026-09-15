@@ -32,18 +32,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.example.posecoach.media.UprightBitmap
-import com.example.posecoach.face.FaceAnalyzer
 import com.example.posecoach.guidance.PoseDescriber
 import com.example.posecoach.media.MediaLibrary
 import androidx.compose.foundation.layout.Arrangement
-import com.example.posecoach.face.FaceInfo
-import com.example.posecoach.pose.FramingClass
-import com.example.posecoach.pose.PoseFrame
-import com.example.posecoach.pose.StillPoseAnalyzer
 import com.example.posecoach.template.Criterion
 import com.example.posecoach.template.Stage
 import com.example.posecoach.template.label
-import com.example.posecoach.template.TemplateGate
 import com.example.posecoach.template.TemplateProfile
 import com.example.posecoach.template.TemplateVerdict
 import com.example.posecoach.ui.theme.Ds
@@ -90,18 +84,6 @@ fun HomeScreen(
     var importError by remember { mutableStateOf<String?>(null) }
     var profile by remember { mutableStateOf<TemplateProfile?>(null) }
 
-    // --- Dữ liệu để TÍNH LẠI hồ sơ khi người dùng chọn kiểu chụp / góc máy ---
-    //
-    // Giữ lại khung xương và khuôn mặt của lần phân tích, vì chọn góc máy xong thì
-    // danh sách "sẽ chấm theo / không áp dụng" phải đổi theo NGAY. Để nguyên danh
-    // sách cũ thì hộp thoại vừa hỏi góc máy vừa ghi "✕ Máy ngửa/chúc — không đo
-    // được" — tự mâu thuẫn ngay trước mắt người dùng.
-    var khungMau by remember { mutableStateOf<PoseFrame?>(null) }
-    var matMau by remember { mutableStateOf<FaceInfo?>(null) }
-    /** Hồ sơ suy THUẦN từ ảnh, không nhãn — để biết ảnh có tự đo được góc máy không. */
-    var profileAnh by remember { mutableStateOf<TemplateProfile?>(null) }
-    var kieuChon by remember { mutableStateOf(MediaLibrary.TemplateKind.PHOTOGRAPHER) }
-    var gocChon by remember { mutableStateOf<MediaLibrary.GocMayNhan?>(null) }
     /**
      * Mô tả dáng và độ khó, suy từ chính khung xương của ảnh mẫu.
      *
@@ -113,65 +95,23 @@ fun HomeScreen(
     var difficulty by remember { mutableStateOf<PoseDescriber.Difficulty?>(null) }
     val scope = rememberCoroutineScope()
 
+    /** Hiện hộp thoại tiêu chí từ một kết quả phân tích đã có. */
+    fun hienKetQua(file: File, kq: PhanTichAnhMau) {
+        profile = kq.hoSo(MediaLibrary.gocMayTheoNhan(file.nameWithoutExtension))
+        poseGuide = kq.poseGuide
+        difficulty = kq.difficulty
+        // Luôn hiện hộp thoại khi NHẬN, kể cả không có cảnh báo: người dùng cần
+        // biết ảnh mẫu này sẽ được chấm theo tiêu chí nào TRƯỚC khi vào màn camera.
+        verdict = file to kq.verdict
+    }
+
     fun runGate(file: File) {
         checking = file
         scope.launch {
-            // Phân tích MỘT LẦN rồi dùng cho cả cổng kiểm lẫn hồ sơ tiêu chí —
-            // không phân tích hai lần, và chắc chắn hai bên nói về cùng một kết quả.
-            val (result, prof, guide) = withContext(Dispatchers.Default) {
-                val bmp = UprightBitmap.decode(file)
-                val frame = if (bmp == null) null else StillPoseAnalyzer.analyze(context, bmp)
-                val v = TemplateGate.check(frame)
-                // Nhận diện mặt CHỈ chạy khi ảnh đã qua cổng kiểm — ảnh bị từ chối
-                // thì chẳng dùng tới, chạy chỉ tốn thời gian chờ.
-                val face = if (frame != null && bmp != null && v is TemplateVerdict.Accepted) {
-                    val fa = FaceAnalyzer()
-                    try { fa.analyze(bmp) } finally { fa.close() }
-                } else null
-                val pAnh = if (frame != null && v is TemplateVerdict.Accepted) {
-                    TemplateProfile.from(frame, v.framing, TemplateGate.CORE_VIS, face)
-                } else null
-                val p = if (frame != null && v is TemplateVerdict.Accepted) {
-                    TemplateProfile.from(
-                        frame, v.framing, TemplateGate.CORE_VIS, face,
-                        gocMayNhan = MediaLibrary.gocMayTheoNhan(file.nameWithoutExtension),
-                    )
-                } else null
-                khungMau = frame
-                matMau = face
-                profileAnh = pAnh
-                val g = if (frame != null && v is TemplateVerdict.Accepted) {
-                    PoseDescriber.describe(frame, TemplateGate.CORE_VIS) to
-                        PoseDescriber.difficulty(frame, v.framing, TemplateGate.CORE_VIS)
-                } else null
-                Triple(v, p, g)
-            }
+            // Phân tích MỘT LẦN rồi dùng cho cả cổng kiểm lẫn hồ sơ tiêu chí.
+            val kq = withContext(Dispatchers.Default) { phanTichAnhMau(context, file) }
             checking = null
-            profile = prof
-            poseGuide = guide?.first ?: emptyList()
-            difficulty = guide?.second
-            // Giá trị ban đầu cho hai lựa chọn của ảnh tự nhập.
-            //
-            // Kiểu chụp: ảnh đã từng gán thì giữ nguyên. Ảnh mới nhập (chưa có tiền
-            // tố) thì ĐOÁN theo khung hình — ảnh chân dung gần như luôn là selfie —
-            // nhưng đoán hiện rõ trên nút để người dùng thấy và đổi được, không phải
-            // đoán ngầm.
-            //
-            // Góc máy: KHÔNG đoán. Ảnh selfie không suy được góc máy (đã đo và loại
-            // ba cách), đoán bừa là đưa hướng dẫn sai. Bắt người dùng chọn.
-            val daGan = MediaLibrary.TemplateKind.of(file.name) != MediaLibrary.TemplateKind.PHOTOGRAPHER ||
-                MediaLibrary.GocMayNhan.cua(file.nameWithoutExtension) != null
-            val khung = (result as? TemplateVerdict.Accepted)?.framing
-            kieuChon = when {
-                daGan -> MediaLibrary.TemplateKind.of(file.name)
-                khung == FramingClass.CHEST || khung == FramingClass.HEAD -> MediaLibrary.TemplateKind.SELFIE
-                else -> MediaLibrary.TemplateKind.PHOTOGRAPHER
-            }
-            gocChon = MediaLibrary.GocMayNhan.cua(file.nameWithoutExtension)
-
-            // Luôn hiện hộp thoại khi NHẬN, kể cả không có cảnh báo: người dùng cần
-            // biết ảnh mẫu này sẽ được chấm theo tiêu chí nào TRƯỚC khi vào màn camera.
-            verdict = file to result
+            hienKetQua(file, kq)
         }
     }
 
@@ -204,6 +144,8 @@ fun HomeScreen(
     // chỉ trao đúng tấm ảnh họ chọn, app không thấy gì khác. Xin quyền đọc toàn bộ
     // ảnh cho một việc thế này là quá đáng, và Google cũng ngày càng siết.
     var importing by remember { mutableStateOf(false) }
+    /** Ảnh vừa chép vào, đang chờ gắn nhãn trong `NhapAnhSheet`. */
+    var nhapMoi by remember { mutableStateOf<File?>(null) }
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
@@ -216,11 +158,9 @@ fun HomeScreen(
                 importError = "Không đọc được ảnh vừa chọn. Thử ảnh khác."
                 return@launch
             }
-            reloadLibrary()
-            // Ảnh vừa import đi qua ĐÚNG cổng kiểm như ảnh soạn sẵn — không có
-            // đường tắt. Bản iOS cho ảnh import vào thẳng màn camera và đó chính
-            // là chỗ sinh ra ngõ cụt im lặng.
-            runGate(copied)
+            // CHƯA nạp lại thư viện: ảnh chưa gắn nhãn thì chưa phải ảnh mẫu. Xem
+            // `NhapAnhSheet`. Cổng kiểm vẫn chạy ngay trong bảng, không có đường tắt.
+            nhapMoi = copied
         }
     }
 
@@ -299,99 +239,34 @@ fun HomeScreen(
         )
     }
 
-    verdict?.let { (file, v) ->
-        val laNhap = MediaLibrary.laAnhNhap(file)
-        // Ảnh tự nhập mà ảnh KHÔNG tự đo được góc máy thì phải hỏi.
-        val canHoiGoc = laNhap && profileAnh?.let { Criterion.PITCH !in it.active } == true
-        // Hồ sơ hiển thị: ảnh tự nhập thì tính lại theo lựa chọn đang chọn.
-        val hoSoHienThi = if (laNhap && v is TemplateVerdict.Accepted && khungMau != null) {
-            remember(file, khungMau, gocChon, canHoiGoc) {
-                TemplateProfile.from(
-                    khungMau!!, v.framing, TemplateGate.CORE_VIS, matMau,
-                    gocMayNhan = if (canHoiGoc) gocChon?.doNghieng else null,
-                )
-            }
-        } else profile
-        GateDialog(
-            verdict = v,
-            profile = hoSoHienThi,
-            onDismiss = { verdict = null },
-            poseGuide = poseGuide,
-            difficulty = difficulty,
-            laAnhNhap = laNhap,
-            kieu = kieuChon,
-            onKieu = { kieuChon = it },
-            canHoiGoc = canHoiGoc,
-            goc = gocChon,
-            onGoc = { gocChon = it },
-            onProceed = {
-                verdict = null
-                val dung = if (laNhap) {
-                    MediaLibrary.ganNhan(file, kieuChon, if (canHoiGoc) gocChon else null)
-                } else file
-                if (dung != file) reloadLibrary()
-                onPickTemplate(dung)
+    nhapMoi?.let { f ->
+        NhapAnhSheet(
+            file = f,
+            onHuy = { f.delete(); nhapMoi = null },
+            onChonAnhKhac = {
+                f.delete(); nhapMoi = null
+                importLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onLuu = { luu, kq ->
+                nhapMoi = null
+                reloadLibrary()
+                hienKetQua(luu, kq)
             },
         )
     }
-}
 
-/**
- * HAI CÂU HỎI CHO ẢNH TỰ NHẬP: chụp kiểu gì, và máy đặt ở đâu.
- *
- * Ảnh cài sẵn mang hai thông tin này trong tên file. Ảnh tự nhập thì không — mà
- * thiếu kiểu chụp là mở sai camera, thiếu góc máy là ảnh selfie mất hai mục hướng
- * dẫn. Xem `MediaLibrary.ganNhan`.
- *
- * Câu hỏi góc máy CHỈ hiện khi ảnh không tự đo được (thường là ảnh selfie, ảnh
- * chân dung). Ảnh toàn thân thì app tự suy từ khung xương, hỏi thêm là thừa.
- */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun LuaChonAnhNhap(
-    kieu: MediaLibrary.TemplateKind,
-    onKieu: (MediaLibrary.TemplateKind) -> Unit,
-    canHoiGoc: Boolean,
-    goc: MediaLibrary.GocMayNhan?,
-    onGoc: (MediaLibrary.GocMayNhan) -> Unit,
-) {
-    Text("Ảnh này chụp kiểu gì?", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-    Spacer(Modifier.height(4.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf(
-            MediaLibrary.TemplateKind.PHOTOGRAPHER to "Người khác chụp",
-            MediaLibrary.TemplateKind.SELFIE to "Selfie",
-            MediaLibrary.TemplateKind.MIRROR to "Qua gương",
-        ).forEach { (k, ten) ->
-            FilterChip(selected = kieu == k, onClick = { onKieu(k) }, label = { Text(ten, fontSize = 12.sp) })
-        }
-    }
-
-    if (canHoiGoc) {
-        Spacer(Modifier.height(10.dp))
-        Text("Máy đặt ở đâu khi chụp ảnh này?", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-        Text(
-            "App không tự đoán được từ ảnh chân dung, nên cần bạn chọn để hướng dẫn " +
-                "đúng việc nâng/hạ và chúc/hất máy.",
-            fontSize = 12.sp, color = Color(0xFF757575),
+    verdict?.let { (file, v) ->
+        GateDialog(
+            verdict = v,
+            profile = profile,
+            onDismiss = { verdict = null },
+            poseGuide = poseGuide,
+            difficulty = difficulty,
+            onProceed = {
+                verdict = null
+                onPickTemplate(file)
+            },
         )
-        Spacer(Modifier.height(4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(
-                MediaLibrary.GocMayNhan.TREN to "Trên cao",
-                MediaLibrary.GocMayNhan.NGANG to "Ngang tầm",
-                MediaLibrary.GocMayNhan.DUOI to "Dưới thấp",
-            ).forEach { (g, ten) ->
-                FilterChip(selected = goc == g, onClick = { onGoc(g) }, label = { Text(ten, fontSize = 12.sp) })
-            }
-        }
-        if (goc == null) {
-            Text(
-                "Chọn góc máy để bắt đầu chụp",
-                fontSize = 12.sp, color = Color(0xFFE65100),
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
     }
 }
 
@@ -410,13 +285,6 @@ private fun GateDialog(
     onDismiss: () -> Unit,
     poseGuide: List<String> = emptyList(),
     difficulty: PoseDescriber.Difficulty? = null,
-    /** Ảnh người dùng tự nhập — phải hỏi kiểu chụp (và có thể cả góc máy). */
-    laAnhNhap: Boolean = false,
-    kieu: MediaLibrary.TemplateKind = MediaLibrary.TemplateKind.PHOTOGRAPHER,
-    onKieu: (MediaLibrary.TemplateKind) -> Unit = {},
-    canHoiGoc: Boolean = false,
-    goc: MediaLibrary.GocMayNhan? = null,
-    onGoc: (MediaLibrary.GocMayNhan) -> Unit = {},
     onProceed: () -> Unit,
 ) {
     when (verdict) {
@@ -438,13 +306,6 @@ private fun GateDialog(
             title = { Text("Ảnh mẫu này sẽ chấm theo") },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    if (laAnhNhap) {
-                        LuaChonAnhNhap(
-                            kieu = kieu, onKieu = onKieu,
-                            canHoiGoc = canHoiGoc, goc = goc, onGoc = onGoc,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                    }
                     Text(
                         "Kiểu khung hình: ${verdict.framing.displayName}",
                         fontWeight = FontWeight.Bold, fontSize = 14.sp,
@@ -555,10 +416,7 @@ private fun GateDialog(
                 }
             },
             confirmButton = {
-                // Chưa chọn góc máy thì chưa cho vào — nhưng NÓI RÕ vì sao ngay trong
-                // hộp thoại (xem dòng nhắc trong `LuaChonAnhNhap`), không để nút mờ
-                // mà không giải thích.
-                TextButton(onClick = onProceed, enabled = !(canHoiGoc && goc == null)) {
+                TextButton(onClick = onProceed) {
                     Text("Bắt đầu chụp")
                 }
             },
