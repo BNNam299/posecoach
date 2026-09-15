@@ -527,8 +527,45 @@ object Measurer {
         // Trục thân quá ngắn trên ảnh thì góc nhiễu loạn — thà bỏ.
         if (kotlin.math.hypot(dy, dz) < 1e-3) return null
         // y của MediaPipe hướng XUỐNG, nên -dy là "lên trên".
-        return Math.toDegrees(kotlin.math.atan2(dz, -dy))
+        return hieuChinhGocAnh(Math.toDegrees(kotlin.math.atan2(dz, -dy)))
     }
+
+    /**
+     * ĐỔI GÓC SUY TỪ ẢNH RA GÓC MÁY THẬT (15/09/2026).
+     *
+     * Số thô từ trục thân 3D **không phải** góc máy. Đo trên video
+     * `test-media/9-selfie-goc/nguoi-khac-chup-goc.mp4` (78 cặp, mỗi khung có
+     * cả số cảm biến lẫn số suy từ ảnh):
+     *
+     * | Số suy từ ảnh | Cảm biến thật |
+     * |---|---|
+     * | −50° | −49° |
+     * | −20° | −14° |
+     * | −8° | +5° |
+     *
+     * Chúc gắt thì hai số khớp, nhưng càng về ngang và ngửa thì ảnh càng **đọc
+     * thấp hơn thật** — cầm máy thẳng mà ảnh ra −16°, ngửa +13° mà ảnh ra −1°.
+     * Đây chính là lỗi "cầm thẳng mà bảo hạ máy": ảnh mẫu đọc theo ảnh, camera
+     * đọc theo cảm biến, hai thang lệch nhau 10-18°.
+     *
+     * Nội suy gãy khúc qua ba mốc trên. Ngoài khoảng đã đo thì giữ độ dốc 1 — không
+     * ngoại suy độ dốc của đoạn giữa ra chỗ chưa có số liệu.
+     *
+     * Sai số trung bình (kiểm bỏ-một-ra): chưa sửa **9,3°**, sau khi sửa **5,6°**.
+     * ⚠️ Mới đo trên một người, một máy. Ngửa quá +15° chưa có số liệu.
+     */
+    internal fun hieuChinhGocAnh(tho: Double): Double {
+        val x = MOC_GOC_ANH
+        val y = MOC_GOC_THAT
+        if (tho <= x.first()) return y.first() + (tho - x.first())
+        if (tho >= x.last()) return y.last() + (tho - x.last())
+        val i = x.indexOfFirst { it > tho }
+        val t = (tho - x[i - 1]) / (x[i] - x[i - 1])
+        return y[i - 1] + t * (y[i] - y[i - 1])
+    }
+
+    private val MOC_GOC_ANH = doubleArrayOf(-50.0, -20.0, -8.0)
+    private val MOC_GOC_THAT = doubleArrayOf(-49.0, -14.0, 5.0)
 
     /**
      * Mục 3 — góc nhìn từ máy tới mốc. Xem [PoseMeasurement.elevationDeg].

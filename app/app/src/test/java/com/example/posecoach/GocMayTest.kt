@@ -97,7 +97,9 @@ class GocMayTest {
 
     @Test
     fun `may ngang tam thi goc bang khong`() {
-        assertEquals(0.0, goc(nguoi(0.0))!!, 0.5)
+        // Khung xương giả lập là hình học lý tưởng, còn app đổi số thô ra góc máy
+        // thật theo số đo trên máy (xem `HieuChinhGocAnhTest`).
+        assertEquals(Measurer.hieuChinhGocAnh(0.0), goc(nguoi(0.0))!!, 0.5)
     }
 
     @Test
@@ -113,7 +115,7 @@ class GocMayTest {
     @Test
     fun `do dung so do, khong chi dung dau`() {
         for (g in listOf(-50.0, -30.0, -15.0, 0.0, 15.0, 40.0)) {
-            assertEquals("góc $g°", g, goc(nguoi(g))!!, 1.0)
+            assertEquals("góc $g°", Measurer.hieuChinhGocAnh(g), goc(nguoi(g))!!, 1.0)
         }
     }
 
@@ -207,7 +209,8 @@ class GocMayTest {
         val live = Measurer.measure(nguoi(-10.0), FramingClass.FULL, minVis)
         val d = ShotScorer.deviation(tpl, live)
         assertEquals(PitchSource.GOC_MAY, d.pitchSource)
-        assertEquals(30.0, d.pitchCue!!, 1.5)
+        val lech = Measurer.hieuChinhGocAnh(-10.0) - Measurer.hieuChinhGocAnh(-40.0)
+        assertEquals(lech, d.pitchCue!!, 1.5)
     }
 
     @Test

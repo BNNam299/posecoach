@@ -2470,3 +2470,24 @@ và đọc tiền tố ra sai nhóm.
 
 ⚠️ Góc máy **không đoán sẵn**, bắt chọn. Kiểu chụp thì đoán sẵn theo khung hình (chân
 dung → selfie) nhưng hiện rõ trên nút để đổi được — đoán hiện ra khác hẳn đoán ngầm.
+
+
+## 87. Góc máy suy từ ảnh và góc cảm biến là HAI THANG KHÁC NHAU
+
+**Sai:** so thẳng số thô từ trục thân 3D của ảnh mẫu với số cảm biến của camera.
+**Đúng:** đổi số ảnh ra góc thật qua `Measurer.hieuChinhGocAnh` (nội suy gãy khúc
+−50→−49, −20→−14, −8→+5; ngoài khoảng giữ độ dốc 1). Đặt ngay trong `measureTiltDeg`
+nên ảnh mẫu, khung video và số hiện màn hình đều cùng một thang.
+**Vì sao:** video 15/09/2026 (78 cặp số): chúc gắt thì khớp, nhưng cầm thẳng ảnh đọc
+−16°, ngửa +13° ảnh đọc −1°. MediaPipe gần như không thấy được máy ngửa. Không đổi
+thang thì ảnh mẫu chụp thẳng bị coi là "chúc" và app bắt người chụp chúc theo. Sai số
+9,3° → 5,6°. ⚠️ Một người, một máy; ngửa quá +15° chưa có số.
+
+## 88. Selfie KHÔNG suy được góc máy từ ảnh — đừng thử lại bằng tỉ lệ mặt/cổ/vai
+
+**Sai:** đoán trên/ngang/dưới của ảnh selfie từ khung xương.
+**Đúng:** hỏi nhãn góc (FOOTGUNS 86).
+**Vì sao:** video selfie 15/09/2026, 59 khung có số cảm biến từ −57° đến +51°: sáu đặc
+trưng (trục cổ-đầu 3D, cổ/vai, mắt-miệng/vai, mũi/2 mắt, miệng-mũi/mũi-mắt, vị trí
+vai) tương quan cao nhất chỉ 0,54, gộp cả sáu vẫn sai trung bình 16°. Người selfie
+luôn xoay mặt về phía máy nên triệt tiêu gần hết dấu hiệu hình học.
