@@ -33,22 +33,23 @@ DAT NHOM SAI THI SAO?
 
 NHAN GOC MAY — TU DAU TIEN SAU TIEN TO NHOM
 --------------------------------------------
-Voi anh selfie, app KHONG TU SUY duoc may dat cao hay thap tu anh (da do va
-loai ca ba cach). Nguoi soan thu vien gan tay bang mot tu:
+BAT BUOC CHO MOI ANH MAU (tu 16/09/2026). App KHONG TU SUY duoc may dat cao hay
+thap tu anh: so doc tu khung xuong lan ca dang dung lan loai ong kinh (anh studio
+chup thang doc ra nhu chup tu duoi len). Nguoi soan thu vien gan tay bang mot tu:
 
     tren   ->  may tren cao, chuc xuong      (vd: selfie-tren-tai-nghe.jpg)
     ngang  ->  may ngang tam                 (vd: selfie-ngang-keo-co-ao.jpg)
     duoi   ->  may thap, hat len             (vd: selfie-duoi-nen-troi-xanh.jpg)
 
-Nhan bi cat khoi ten hien thi. Anh chup nguoi khac cung gan duoc
-(vd: tren-kinh-ram.jpg), khi do nhan THANG phep suy tu anh.
-Khong gan nhan thi anh selfie se KHONG co muc may cao/thap va ngua/chuc.
+Nhan bi cat khoi ten hien thi. Anh chup nguoi khac: nhan o DAU TEN
+(vd: tren-kinh-ram.jpg, duoi-NGOI-ghe.jpg). Anh guong: mirror-ngang-....jpg
+Khong gan nhan thi anh mau se KHONG co muc may cao/thap va ngua/chuc.
 
 SAU KHI THEM HOAC BO ANH — BAT BUOC LAM BUOC NAY
 ------------------------------------------------
 Mo file:   app/app/src/main/java/com/example/posecoach/media/MediaLibrary.kt
-Tim dong:  private const val SEED_MARKER = ".da-nap-anh-mau-v5"
-Doi so cuoi:  v5 -> v6  (lan sau nua: v6 -> v7)
+Tim dong:  private const val SEED_MARKER = ".da-nap-anh-mau-v6"
+Doi so cuoi:  v6 -> v7  (lan sau nua: v7 -> v8)
 
 Khong doi so thi app CHI dung bo anh cu, vi no nho la "da nap roi".
 Doi so xong, lan mo app ke tiep se:

@@ -275,6 +275,19 @@ data class PoseMeasurement(
             if (poseAngles.isNotEmpty()) 1 else 0
 }
 
+/**
+ * Bỏ ba đại lượng góc máy SUY TỪ ẢNH: độ nghiêng, góc nhìn, và nguồn [PitchSource.GOC_MAY].
+ *
+ * Suy từ trục thân nên lẫn cả dáng đứng (ngả người, tay đút túi) lẫn loại ống kính
+ * (ảnh studio ống dài chụp thẳng đọc ra +4°, điện thoại chụp thẳng đọc −16°). Góc máy
+ * thật chỉ lấy từ NHÃN (ảnh mẫu) và CẢM BIẾN (camera). Xem FOOTGUNS 91.
+ */
+fun PoseMeasurement.boGocMayTuAnh(): PoseMeasurement = copy(
+    tiltDeg = null,
+    elevationDeg = null,
+    pitchCue = pitchCue - PitchSource.GOC_MAY,
+)
+
 object Measurer {
 
     /**

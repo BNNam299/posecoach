@@ -121,17 +121,16 @@ internal fun NhapAnhSheet(
                 }
 
                 else -> {
-                    val canHoiGoc = !k.tuDoDuocGoc
-                    ChonNhan(kieu, { kieu = it }, canHoiGoc, goc, { goc = it })
+                    ChonNhan(kieu, { kieu = it }, goc, { goc = it })
                     Spacer(Modifier.height(18.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(onClick = onHuy, modifier = Modifier.weight(1f)) { Text("Huỷ") }
                         Button(
                             onClick = {
-                                val chot = MediaLibrary.ganNhan(file, kieu, if (canHoiGoc) goc else null)
+                                val chot = MediaLibrary.ganNhan(file, kieu, goc)
                                 onLuu(chot, k)
                             },
-                            enabled = !(canHoiGoc && goc == null),
+                            enabled = goc != null,
                             modifier = Modifier.weight(1f),
                         ) { Text("Lưu ảnh mẫu") }
                     }
@@ -147,15 +146,14 @@ internal fun NhapAnhSheet(
  * Ảnh cài sẵn mang hai thông tin này trong tên file. Thiếu kiểu chụp là mở sai
  * camera, thiếu góc máy là ảnh selfie mất hai mục hướng dẫn. Xem `MediaLibrary.ganNhan`.
  *
- * Câu hỏi góc máy CHỈ hiện khi ảnh không tự đo được (ảnh selfie, chân dung). Ảnh
- * toàn thân thì app tự suy từ khung xương, chính xác hơn ba mức nhãn thô.
+ * Câu hỏi góc máy hiện với MỌI ảnh: suy góc máy từ khung xương lẫn dáng đứng và
+ * loại ống kính nên không tin được, kể cả ảnh toàn thân (FOOTGUNS 91).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChonNhan(
     kieu: TemplateKind,
     onKieu: (TemplateKind) -> Unit,
-    canHoiGoc: Boolean,
     goc: GocMayNhan?,
     onGoc: (GocMayNhan) -> Unit,
 ) {
@@ -171,12 +169,12 @@ private fun ChonNhan(
         }
     }
 
-    if (canHoiGoc) {
+    run {
         Spacer(Modifier.height(14.dp))
         Text("Máy đặt ở đâu khi chụp?", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Ds.text)
         Text(
-            "App không tự đoán được từ ảnh chân dung, nên cần bạn chọn để hướng dẫn " +
-                "đúng việc nâng/hạ và chúc/hất máy. Nhìn ảnh theo gợi ý dưới mỗi mục.",
+            "App không tự đoán chính xác được góc máy từ ảnh, nên cần bạn chọn để " +
+                "hướng dẫn đúng việc nâng/hạ và chúc/hất máy. Nhìn ảnh theo gợi ý dưới mỗi mục.",
             fontSize = 12.sp, color = Ds.textMuted,
         )
         Spacer(Modifier.height(6.dp))

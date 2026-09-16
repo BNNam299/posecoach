@@ -1,7 +1,7 @@
-# Điểm yếu: app không tự nhận ra GÓC MÁY của ảnh selfie và ảnh chân dung
+# Điểm yếu: app không tự nhận ra GÓC MÁY của ảnh mẫu
 
-> Ghi ngày 15/09/2026 · trạng thái: **CHƯA GIẢI** — đang tạm bằng cách hỏi người dùng.
-> File này để kiểm lại và tìm giải pháp sau. Chi tiết kỹ thuật: `FOOTGUNS.md` mục 87, 88.
+> Ghi ngày 15/09/2026, **mở rộng 16/09/2026** · trạng thái: **CHƯA GIẢI** — đang tạm bằng
+> cách gắn nhãn tay. Chi tiết kỹ thuật: `FOOTGUNS.md` mục 88, 91 (mục 87, 89 đã bị thay thế).
 
 ---
 
@@ -12,11 +12,18 @@ dưới thấp hất lên) thì mới hướng dẫn được hai mục **"Máy 
 
 | Loại ảnh mẫu | App tự biết góc máy? |
 |---|---|
-| Toàn thân, thấy hông (người khác chụp hoặc qua gương) | ✅ Có, đo từ trục thân, sai trung bình khoảng 5,6° |
-| **Selfie camera trước** | ❌ **Không** |
-| **Nửa người / chân dung** (kể cả do người khác chụp) | ❌ **Không**, vì không thấy hông |
+| **Mọi loại** — kể cả toàn thân thấy hông | ❌ **Không tin được** (16/09/2026) |
+| Selfie camera trước | ❌ Không |
+| Nửa người / chân dung | ❌ Không, vì không thấy hông |
 
-Điểm mấu chốt: **lỗi không nằm ở kiểu chụp mà ở chuyện có thấy hông hay không.**
+⚠️ **Cập nhật 16/09/2026 — ảnh toàn thân cũng hỏng.** Trước đây tưởng ảnh thấy hông thì đo
+được (trục thân, sai ~5,6°). Video test cho thấy sai: ảnh studio `nam-nen-trang-tay-tui`
+PO khẳng định **chụp thẳng**, nhưng trục thân đọc **+17°** như chụp từ dưới lên, và app bắt
+người chụp hạ máy chạm đất vẫn chưa đạt. Con số trục thân lẫn **dáng đứng** (tay đút túi, ngả
+người) và **loại ống kính** (studio ống dài từ xa khác điện thoại ở gần). Số 5,6° chỉ đúng
+với đúng ca đã đo: một người đứng thẳng, một điện thoại.
+
+→ Từ 16/09/2026 **mọi ảnh mẫu** phải gắn nhãn góc máy, bảng nhập ảnh luôn hỏi.
 
 Các tiêu chí khác của ảnh selfie và chân dung vẫn đo từ ảnh bình thường: hướng mặt, xa/gần,
 lệch trái/phải, máy nghiêng, dáng tay, mắt mở. **Chỉ riêng góc máy là thiếu.**

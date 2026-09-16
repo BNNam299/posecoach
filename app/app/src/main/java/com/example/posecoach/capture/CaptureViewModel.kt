@@ -1,5 +1,6 @@
 package com.example.posecoach.capture
 
+import com.example.posecoach.measure.boGocMayTuAnh
 import android.graphics.Bitmap
 import androidx.lifecycle.ViewModel
 import com.example.posecoach.face.FaceInfo
@@ -82,8 +83,6 @@ class CaptureViewModel : ViewModel() {
     private var devicePitchDeg: Double? = null
     private var devicePortrait: Boolean = true
 
-    /** Đưa góc cảm biến về thang của ảnh mẫu. Xem [com.example.posecoach.measure.GocMayCungThangAnh]. */
-    private val gocCungThang = com.example.posecoach.measure.GocMayCungThangAnh()
     private var zoomRatio: Float = 1f
 
     /**
@@ -145,7 +144,6 @@ class CaptureViewModel : ViewModel() {
         vFovDeg = null
         liveFace = null
         liveFaceAtMs = 0L
-        gocCungThang.xoa()
         // ⚠️ HƯỚNG MÁY PHẢI VỀ MẶC ĐỊNH (16/09/2026). Bản trước quên dòng này: lần
         // chụp trước cảm biến lỡ nhảy sang "ngang" thì lần sau mở màn chụp vẫn bị
         // nhắc "xoay máy về dọc" mãi — màn chụp mới không báo lại hướng khi hướng
@@ -182,8 +180,6 @@ class CaptureViewModel : ViewModel() {
     fun onCountdown(sec: Int?) = _state.update { it.copy(countdown = sec) }
 
     fun onShootModeChanged(m: ShootMode) {
-        // Đổi camera trước/sau thì độ lệch ảnh↔cảm biến đổi hẳn — bỏ số cũ.
-        if (m.camTruoc != mode.camTruoc) gocCungThang.xoa()
         mode = m
         _state.update { it.copy(mode = m) }
     }
@@ -308,7 +304,6 @@ class CaptureViewModel : ViewModel() {
         // Góc máy SUY TỪ ẢNH của chính khung camera — chỉ để hiện cạnh số cảm biến,
         // xem `CaptureUiState.debugGocMay`. Không dùng để chấm.
         var gocAnhLive: Double? = null
-        var gocDung: Double? = null
         val live =if (detected && profile != null) {
             val vFov = vFovDeg ?: Measurer.VFOV_ANH_MAU
             val doAnh = Measurer.measure(
@@ -323,19 +318,16 @@ class CaptureViewModel : ViewModel() {
                     ?.let { if (mode.camTruoc) it.copy(yawDeg = it.yawDeg?.unaryMinus()) else it },
                 vFovDeg = vFov,
             )
-            // ⚠️ GÓC MÁY: ĐỘ NHẠY TỪ CẢM BIẾN, THANG TỪ ẢNH (16/09/2026).
-            //
-            // Bản 14/09 lấy thẳng cảm biến rồi so với ảnh mẫu đọc từ ảnh — hai thang
-            // lệch nhau tới 15°, và cho ĐẠT một ảnh nhìn khác hẳn ảnh mẫu. Xem
-            // `GocMayCungThangAnh`.
+            // ⚠️ GÓC MÁY PHÍA CAMERA LẤY TỪ CẢM BIẾN — độ thật, cùng thang với NHÃN
+            // góc của ảnh mẫu. KHÔNG suy từ khung xương: con số đó lẫn dáng đứng và
+            // loại ống kính, xem FOOTGUNS 91.
             //
             // Camera trước nhìn NGƯỢC hướng camera sau, nên dấu góc đảo lại: giơ máy
             // trên đầu cho camera trước chúc xuống mặt thì camera sau đang ngửa lên.
             val camBien = devicePitchDeg?.let { if (mode.camTruoc) -it else it }
             gocAnhLive = doAnh.tiltDeg
-            val goc = gocCungThang.capNhat(android.os.SystemClock.elapsedRealtime(), camBien, doAnh.tiltDeg)
-            gocDung = goc
-            if (goc == null) doAnh else doAnh.copy(
+            val goc = camBien
+            if (goc == null) doAnh.boGocMayTuAnh() else doAnh.copy(
                 tiltDeg = goc,
                 pitchCue = doAnh.pitchCue + (com.example.posecoach.measure.PitchSource.GOC_MAY to goc),
                 elevationDeg = Measurer.gocNhin(goc, doAnh.elevationAnchorY, vFov),
@@ -346,7 +338,7 @@ class CaptureViewModel : ViewModel() {
         val dbgGoc = run {
             fun f(v: Double?) = v?.let { "%+.0f°".format(it) } ?: "--"
             val camBien = devicePitchDeg?.let { if (mode.camTruoc) -it else it }
-            "GÓC MÁY   cảm biến " + f(camBien) + " · ảnh " + f(gocAnhLive) + " · dùng " + f(gocDung)
+            "GÓC MÁY   cảm biến " + f(camBien) + "   ·   suy từ ảnh " + f(gocAnhLive)
         }
 
         // ⚠️ TẠM — xem `CaptureUiState.debugDo`.

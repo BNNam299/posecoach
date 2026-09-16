@@ -44,7 +44,7 @@ object MediaLibrary {
      * ⚠️ Chỉ xoá ảnh **do app cài sẵn** — ảnh người dùng tự chọn từ máy KHÔNG bị
      * đụng tới. Danh sách ảnh cài sẵn ghi trong chính file đánh dấu.
      */
-    private const val SEED_MARKER = ".da-nap-anh-mau-v5"
+    private const val SEED_MARKER = ".da-nap-anh-mau-v6"
 
     private val IMAGE_EXT = setOf("jpg", "jpeg", "png", "webp", "jfif")
 
@@ -103,7 +103,11 @@ object MediaLibrary {
      *
      * Ví dụ: `selfie-tren-tai-nghe-nhin-nghieng.jpg`.
      *
-     * ## Vì sao phải gán tay
+     * ## Vì sao phải gán tay — cho MỌI ảnh mẫu, không riêng selfie (16/09/2026)
+     *
+     * Suy góc máy từ trục thân lẫn cả dáng đứng lẫn loại ống kính: ảnh studio chụp
+     * thẳng `ngang-nam-nen-trang-tay-tui` đọc ra +17°, và app bắt người chụp hạ máy
+     * chạm đất vẫn chưa đạt (FOOTGUNS 91).
      *
      * Với ảnh selfie **không có cách nào suy được góc máy từ ảnh**. Đã đo và loại
      * lần lượt ba đường: tỉ lệ mặt/vai (tương quan −0,117), đường tai–mắt

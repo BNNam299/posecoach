@@ -8,7 +8,6 @@ import com.example.posecoach.media.UprightBitmap
 import com.example.posecoach.pose.FramingClass
 import com.example.posecoach.pose.PoseFrame
 import com.example.posecoach.pose.StillPoseAnalyzer
-import com.example.posecoach.template.Criterion
 import com.example.posecoach.template.TemplateGate
 import com.example.posecoach.template.TemplateProfile
 import com.example.posecoach.template.TemplateVerdict
@@ -34,12 +33,6 @@ internal class PhanTichAnhMau(
         val k = framing ?: return null
         return TemplateProfile.from(f, k, TemplateGate.CORE_VIS, face, gocMayNhan = gocMayNhan)
     }
-
-    /**
-     * Ảnh tự đo được góc máy không. Ảnh toàn thân thì được (trục thân), ảnh selfie /
-     * chân dung thì không — phải hỏi người dùng (FOOTGUNS 88).
-     */
-    val tuDoDuocGoc: Boolean by lazy { hoSo(null)?.let { Criterion.PITCH in it.active } == true }
 }
 
 /** Chạy chặn luồng — gọi trong `Dispatchers.Default`. */

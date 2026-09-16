@@ -1,5 +1,6 @@
 package com.example.posecoach
 
+import com.example.posecoach.media.MediaLibrary
 import com.example.posecoach.guidance.GuidanceEngine
 import com.example.posecoach.measure.Measurer
 import com.example.posecoach.pose.FramingClass
@@ -145,27 +146,31 @@ class ThoiQuenChupTest {
     // Tách ảnh méo có chủ ý khỏi ảnh chụp thường
     // =================================================================
 
+    // Từ 16/09/2026 "méo chủ ý" đọc từ NHÃN góc máy, không từ khung xương (FOOTGUNS 91).
+    private fun profileCoNhan(goc: MediaLibrary.GocMayNhan?): TemplateProfile {
+        val f = nguoi(0.0)
+        return TemplateProfile.from(f, FramingClass.detect(f, minVis)!!, minVis, gocMayNhan = goc?.doNghieng)
+    }
+
     @Test
     fun `anh chup thuong KHONG bi coi la meo chu y`() {
-        // Đo thật trên ảnh mẫu: nhóm chụp thường nằm trong khoảng −20,4° tới +3,9°.
-        for (g in listOf(0.0, -13.0, -16.7, -20.4, 3.9)) {
-            assertFalse("góc $g° không phải ảnh méo chủ ý", profileCua(nguoi(g)).chupSat)
-        }
+        assertFalse(profileCoNhan(MediaLibrary.GocMayNhan.NGANG).chupSat)
+        // Khung xương nghiêng mạnh mà không có nhãn thì cũng không được đoán là méo.
+        assertFalse(profileCua(nguoi(-52.8)).chupSat)
     }
 
     @Test
     fun `anh chuc tu tren cao va ngua tu duoi len LA meo chu y`() {
-        // kinh-ram-tai-nghe = −52,8°  ·  NGOI-ghe-giua-dong = +39,7°
-        assertTrue(profileCua(nguoi(-52.8)).chupSat)
-        assertTrue(profileCua(nguoi(39.7)).chupSat)
+        assertTrue(profileCoNhan(MediaLibrary.GocMayNhan.TREN).chupSat)
+        assertTrue(profileCoNhan(MediaLibrary.GocMayNhan.DUOI).chupSat)
     }
 
     @Test
-    fun `nguong nam GIUA hai nhom do duoc, khong sat mep ben nao`() {
-        // Nhóm thường cao nhất 20,4° · nhóm méo thấp nhất 39,7°.
+    fun `nguong nam GIUA nhan ngang va nhan tren duoi`() {
         val nguong = TemplateProfile.GOC_CHUP_SAT_DEG
-        assertTrue("Ngưỡng $nguong° phải trên nhóm thường", nguong > 20.4 + 5)
-        assertTrue("Ngưỡng $nguong° phải dưới nhóm méo", nguong < 39.7 - 5)
+        val lech = MediaLibrary.GocMayNhan.entries.map { kotlin.math.abs(it.doNghieng) }
+        assertTrue(nguong > lech.min() + 5)
+        assertTrue(nguong < lech.filter { it > 0 }.min() - 3)
     }
 
     @Test

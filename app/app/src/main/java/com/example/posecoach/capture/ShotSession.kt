@@ -1,5 +1,6 @@
 package com.example.posecoach.capture
 
+import com.example.posecoach.measure.boGocMayTuAnh
 import android.graphics.Bitmap
 import com.example.posecoach.face.FaceAnalyzer
 import com.example.posecoach.measure.CropQuality
@@ -115,7 +116,10 @@ class ShotSession(
         // vào chung kết — vừa nhanh hơn ~25 lần, vừa CHÍNH XÁC HƠN: ở đây ảnh chỉ
         // ~480px nên khuôn mặt trong ảnh toàn thân quá nhỏ để nhận ra.
         val face = if (needFacePerFrame) faceAnalyzer?.analyze(bitmap) else null
-        val measurement = Measurer.measure(pose, profile.framing, minVisibility, face)
+        // Bỏ góc máy suy từ ảnh: nó lẫn dáng đứng và ống kính, không so được với nhãn
+        // góc của ảnh mẫu (FOOTGUNS 91). Cả lần quay đã được canh góc bằng cảm biến
+        // từ trước, nên giữa các khung góc máy gần như không khác nhau.
+        val measurement = Measurer.measure(pose, profile.framing, minVisibility, face).boGocMayTuAnh()
 
         // Chấm điểm KHÔNG kèm độ nét ở bước này — cố ý.
         //

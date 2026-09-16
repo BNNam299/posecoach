@@ -2512,3 +2512,17 @@ báo hướng hiện tại ngay khi bật.
 **Vì sao:** `viewModel()` sống suốt Activity. Lần chụp trước cảm biến lỡ nhảy sang ngang
 (chúc máy xuống) thì lần sau controller mới tưởng "vẫn dọc, không đổi" nên không báo —
 câu nhắc kẹt tới khi người dùng tình cờ xoay ngang rồi dọc lại.
+
+
+## 91. Góc máy suy từ khung xương KHÔNG PHẢI góc máy — mọi ảnh mẫu phải gắn nhãn góc
+
+**Sai:** lấy độ nghiêng trục thân (hông→vai) trong khung xương 3D làm góc máy của ảnh
+mẫu, rồi quy đổi (mục 87) hoặc đưa camera về cùng thang ảnh (mục 89).
+**Đúng:** góc máy ảnh mẫu CHỈ từ nhãn trong tên file (`tren`/`ngang`/`duoi`, −35/0/+25°),
+bảng nhập ảnh luôn hỏi; camera CHỈ từ cảm biến. Không nhãn → bỏ mục cao/thấp và
+ngửa/chúc (`PoseMeasurement.boGocMayTuAnh`). Khung video sau khi quay cũng bỏ.
+**Vì sao:** video 16/09/2026: ảnh studio `nam-nen-trang-tay-tui` PO khẳng định chụp
+thẳng, nhưng trục thân đọc +17° (như chụp từ dưới lên); app bắt hạ máy chạm đất vẫn
+chưa đạt. Con số trục thân lẫn **dáng đứng** (tay đút túi, ngả người) và **ống kính**
+(studio ống dài từ xa khác điện thoại ở gần). Bảng quy đổi mục 87 đo trên một người
+đứng thẳng, một điện thoại, nên chỉ đúng với đúng ca đó. ⚠️ Mục 87 và 89 đã bị thay thế.

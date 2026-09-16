@@ -1,5 +1,6 @@
 package com.example.posecoach.template
 
+import com.example.posecoach.measure.boGocMayTuAnh
 import com.example.posecoach.face.FaceInfo
 import com.example.posecoach.measure.CropQuality
 import com.example.posecoach.measure.Measurer
@@ -336,20 +337,17 @@ data class TemplateProfile(
         /**
          * Góc máy vượt mức này thì coi ảnh mẫu là CỐ TÌNH chụp sát để tạo méo.
          *
-         * Đo trên 13 ảnh mẫu cài sẵn (12/09/2026), góc trục thân:
+         * Từ 16/09/2026 góc máy ảnh mẫu chỉ lấy từ NHÃN, nhận đúng ba giá trị
+         * −35° (trên cao) / 0° (ngang) / +25° (dưới thấp). Nhãn "trên" và "dưới"
+         * chính là ảnh cố tình chụp méo, nên ngưỡng chỉ cần nằm giữa 0 và 25.
          *
-         * ```
-         * chụp thường : −0,3  −2,5  −2,8  +3,9  −4,5  −13,0  −15,8  −16,7  −20,4
-         * méo chủ ý   :                                      +39,7        −52,8
-         * ```
-         *
-         * Có một khoảng trống rộng từ 20° tới 40°. Chọn 30° để có biên cả hai
-         * phía: trên hẳn nhóm thường (cao nhất 20,4°) và dưới hẳn nhóm méo
-         * (thấp nhất 39,7°).
-         *
-         * ⚠️ 13 ảnh là mẫu nhỏ. Thêm ảnh mẫu mới thì chạy lại phép đo này.
+         * Bản cũ (30°) đo trên góc trục thân suy từ ảnh — con số đó lẫn dáng đứng
+         * và ống kính, xem FOOTGUNS 91.
          */
-        const val GOC_CHUP_SAT_DEG = 30.0
+        const val GOC_CHUP_SAT_DEG = 20.0
+
+        private const val KHONG_NHAN_GOC =
+            "ảnh mẫu chưa gắn nhãn góc máy (trên cao / ngang tầm / dưới thấp)"
 
         fun from(
             frame: PoseFrame,
@@ -367,7 +365,9 @@ data class TemplateProfile(
             gocMayNhan: Double? = null,
         ): TemplateProfile {
             val doAnh = Measurer.measure(frame, framing, minVisibility, face)
-            val m = if (gocMayNhan == null) doAnh else doAnh.copy(
+            // ⚠️ GÓC MÁY CỦA ẢNH MẪU CHỈ LẤY TỪ NHÃN (16/09/2026) — FOOTGUNS 91.
+            // Không nhãn thì bỏ hai mục góc máy (quy tắc số 4), không suy từ ảnh.
+            val m = if (gocMayNhan == null) doAnh.boGocMayTuAnh() else doAnh.copy(
                 tiltDeg = gocMayNhan,
                 pitchCue = doAnh.pitchCue + (PitchSource.GOC_MAY to gocMayNhan),
                 elevationDeg = Measurer.gocNhin(
@@ -397,7 +397,8 @@ data class TemplateProfile(
             )
             check(
                 Criterion.ELEVATION, m.elevationDeg != null,
-                "không thấy hông mẫu trong ảnh mẫu nên không suy được máy đứng cao hay thấp — ảnh chân dung thì mục ngửa/chúc gánh phần này",
+                if (gocMayNhan == null) KHONG_NHAN_GOC
+                else "người trong ảnh mẫu nằm lệch xa giữa khung hoặc không thấy mốc đo, nên không suy được máy cao hay thấp",
             )
             check(
                 Criterion.ROLL, m.rollDeg.isNotEmpty(),
@@ -405,7 +406,8 @@ data class TemplateProfile(
             )
             check(
                 Criterion.PITCH, m.pitchCue.isNotEmpty(),
-                "không đủ mốc để suy độ méo phối cảnh của ảnh mẫu " +
+                if (gocMayNhan == null) KHONG_NHAN_GOC
+                else "không đủ mốc để suy độ méo phối cảnh của ảnh mẫu " +
                     "(cần thấy chân, hoặc thấy rõ mặt và hai vai)",
             )
             // ⚠️ HAI điều kiện, và phải xét theo đúng thứ tự này để câu giải thích
