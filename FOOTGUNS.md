@@ -2491,3 +2491,24 @@ thang thì ảnh mẫu chụp thẳng bị coi là "chúc" và app bắt ngườ
 trưng (trục cổ-đầu 3D, cổ/vai, mắt-miệng/vai, mũi/2 mắt, miệng-mũi/mũi-mắt, vị trí
 vai) tương quan cao nhất chỉ 0,54, gộp cả sáu vẫn sai trung bình 16°. Người selfie
 luôn xoay mặt về phía máy nên triệt tiêu gần hết dấu hiệu hình học.
+
+
+## 89. So góc ảnh mẫu (đọc từ ảnh) với góc camera (đọc từ cảm biến) — cho ĐẠT ảnh sai
+
+**Sai:** live dùng góc cảm biến trần, ảnh mẫu dùng góc suy từ ảnh qua bảng hiệu chỉnh.
+**Đúng:** `GocMayCungThangAnh` — góc live = cảm biến + trung vị (ảnh − cảm biến) trong 1,5 s.
+Thang lấy từ ảnh (so thẳng với ảnh mẫu), độ nhạy lấy từ cảm biến.
+**Vì sao:** video 16/09/2026, mẫu `nam-nen-trang-tay-tui`: app so +17° với cảm biến +4°
+(lệch 13°, cho ĐẠT), nhưng đo ảnh mẫu và ảnh chụp ra bằng cùng công thức thì +17° với
+−11° (lệch 28°) — ảnh ra nhìn khác hẳn. Camera trước còn lệch thêm ~9° so với bảng hiệu
+chỉnh (đo từ camera sau). Đây là vi phạm bất biến số 1, chỉ là ẩn sau một bảng quy đổi.
+
+## 90. Vào lại màn chụp vẫn bị nhắc "xoay máy về dọc" dù đang cầm dọc
+
+**Sai:** `startFresh()` xoá mọi trạng thái trừ `devicePortrait`; `CaptureController` chỉ
+báo hướng khi hướng ĐỔI.
+**Đúng:** `startFresh()` đặt lại `devicePortrait = true`, và `CaptureController.start()`
+báo hướng hiện tại ngay khi bật.
+**Vì sao:** `viewModel()` sống suốt Activity. Lần chụp trước cảm biến lỡ nhảy sang ngang
+(chúc máy xuống) thì lần sau controller mới tưởng "vẫn dọc, không đổi" nên không báo —
+câu nhắc kẹt tới khi người dùng tình cờ xoay ngang rồi dọc lại.

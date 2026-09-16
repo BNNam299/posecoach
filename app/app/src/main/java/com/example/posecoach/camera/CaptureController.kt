@@ -357,6 +357,10 @@ class CaptureController(
         }, ContextCompat.getMainExecutor(context))
 
         orientationListener.enable()
+        // Báo hướng ban đầu NGAY — trình nghe chỉ báo khi hướng ĐỔI, nên thiếu dòng
+        // này thì bên nhận giữ nguyên hướng của lần chụp trước (lỗi 16/09/2026:
+        // cầm dọc mà bị nhắc "xoay máy về dọc" suốt).
+        onRotationChanged(currentRotation)
     }
 
     /**
