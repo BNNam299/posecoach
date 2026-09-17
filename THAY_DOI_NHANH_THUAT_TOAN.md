@@ -88,9 +88,9 @@ giữ nguyên ảnh người dùng tự nhập.
 | **Chân dung** | Góc mặt lấy từ ML Kit. Ảnh mẫu mất mốc cỡ người (cụt đầu) thì so bằng khung mặt |
 | **Xa/gần** | Đã lùi đủ xa (theo khoảng cách ước tính) thì thôi bắt lùi — hết cảnh lùi vô tận |
 | **Máy nghiêng** | Luôn nói về máy: *"Xoay máy (ngược) chiều kim đồng hồ"*. Ảnh chụp từ trên cao (thân co rút) thì bỏ đường trục thân |
-| **Thứ tự nhắc** | Hướng mẫu trước, máy nghiêng cuối. Gần đúng rồi thì nói cái sai nhiều nhất trước |
+| **Thứ tự nhắc** | Cố định theo bước: xoay thẳng máy → khoảng cách → góc/độ cao → zoom → bố cục → hướng mẫu → dáng. Bước sau chờ, không chen lên |
 | **Selfie** | Câu dáng bỏ chữ "Bảo mẫu" |
-| **Không đo được lâu** | Không còn im lặng, và không báo "sẵn sàng" giả |
+| **Không đo được lâu** | Không còn im lặng, và không báo "sẵn sàng" giả. Tự động bỏ qua mục kẹt sau khoảng 6 giây; bấm tay luôn được phép chụp |
 
 ## 5. Tài liệu và công cụ
 

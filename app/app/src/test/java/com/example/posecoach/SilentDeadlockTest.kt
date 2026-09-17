@@ -144,27 +144,17 @@ class SilentDeadlockTest {
         )
     }
 
-    /**
-     * ⚠️ VÀNG LÀ CHẤP NHẬN ĐƯỢC, KHÔNG PHẢI CHƯA SẠCH — 07/09/2026.
-     *
-     * Trạng thái vàng (`GREY`) là **vùng đệm chống nhấp nháy**: đã tốt hơn mức đáng
-     * nhắc nhưng chưa đủ tốt để công nhận. Nó KHÔNG phải trạng thái sai.
-     *
-     * Trước đây `cameraClean` đòi mọi mục về máy phải xanh hoặc không đo được. Cầm
-     * máy trên tay thì lúc nào cũng có một mục ở vùng đệm → **gần như không bao giờ
-     * tới lượt nhắc dáng**. Người dùng báo đúng triệu chứng: *"cũng không có phần
-     * nhắc nhở về dáng của mẫu"*.
-     */
+    /** Trạng thái vàng chưa được phép mở bước tạo dáng trong quy trình tuần tự. */
     @Test
-    fun `muc mau VANG khong duoc chan cau nhac ve dang`() {
-        val camera = listOf(GateState.PASSING, GateState.GREY, GateState.UNMEASURED)
+    fun `goc may VANG van phai chan buoc tao dang`() {
+        val camera = listOf(GateState.PASSING, GateState.GREY)
         assertTrue(
-            "Chỉ FAILING mới được chặn — vàng và chưa đo được đều cho qua",
-            camera.none { it == GateState.FAILING },
+            "Vàng chỉ là gần đúng, chưa phải hoàn thành bước góc máy",
+            !camera.all { it == GateState.PASSING },
         )
         assertTrue(
-            "Có mục FAILING thì mới chặn",
-            !listOf(GateState.PASSING, GateState.FAILING).none { it == GateState.FAILING },
+            "Chỉ khi toàn bộ mục của bước đã đạt mới được đi tiếp",
+            listOf(GateState.PASSING, GateState.PASSING).all { it == GateState.PASSING },
         )
     }
 }

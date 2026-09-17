@@ -57,6 +57,8 @@ import com.example.posecoach.ui.theme.Ds
 @Composable
 fun CriteriaChecklist(criteria: List<CriterionStatus>, modifier: Modifier = Modifier) {
     if (criteria.isEmpty()) return
+    // UI CHẨN ĐOÁN TRONG GIAI ĐOẠN TEST: giữ toàn bộ tiêu chí và trạng thái
+    // chờ/bỏ qua để PO quan sát engine. Chỉ ẩn khi có quyết định phát hành.
     Column(
         modifier
             .clip(RoundedCornerShape(Ds.rSmall))
@@ -68,18 +70,27 @@ fun CriteriaChecklist(criteria: List<CriterionStatus>, modifier: Modifier = Modi
         // dùng chỉ là MỘT câu hỏi — "tôi đứng đủ xa chưa?". Bày hai dòng làm họ
         // tưởng phải sửa hai thứ, trong khi đó là một việc có hai bước.
         for ((label, item) in groupRows(criteria)) {
-            val (mark, tint) = when (item.state) {
-                GateState.PASSING -> "✓" to Ds.success
-                GateState.FAILING -> "!" to Ds.dangerText
-                GateState.GREY -> "◐" to Ds.warning
-                GateState.UNMEASURED -> "–" to Color(0x80FFFFFF)
+            val (mark, tint) = when {
+                item.skipped -> "~" to Ds.warning
+                item.pending -> "○" to Color(0x80FFFFFF)
+                else -> when (item.state) {
+                    GateState.PASSING -> "✓" to Ds.success
+                    GateState.FAILING -> "!" to Ds.dangerText
+                    GateState.GREY -> "◐" to Ds.warning
+                    GateState.UNMEASURED -> "–" to Color(0x80FFFFFF)
+                }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(mark, color = tint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    label,
-                    color = if (item.state == GateState.PASSING) Ds.success else Color(0xE6FFFFFF),
+                    when {
+                        item.skipped -> "$label · bỏ qua"
+                        item.pending -> "$label · chờ"
+                        else -> label
+                    },
+                    color = if (item.state == GateState.PASSING && !item.pending) Ds.success
+                    else Color(0xE6FFFFFF),
                     fontSize = 11.sp,
                 )
             }
@@ -112,7 +123,9 @@ fun CriteriaProgress(
 ) {
     val rows = groupRows(criteria)
     if (rows.isEmpty()) return
-    val done = rows.count { it.second.state == GateState.PASSING }
+    val done = rows.count {
+        !it.second.pending && (it.second.state == GateState.PASSING || it.second.skipped)
+    }
     val total = rows.size
     val ratio = matchPercent?.let { it / 100f } ?: (done.toFloat() / total)
 
@@ -147,14 +160,10 @@ fun CriteriaProgress(
 }
 
 /**
- * Gộp các mục cùng nhãn thành MỘT dòng, lấy trạng thái của mục **tệ nhất**.
+ * Gộp các mục cùng nhãn thành MỘT dòng.
  *
- * ⚠️ Thứ tự "tệ" KHÔNG phải thứ tự khai báo của [GateState]. Phải là:
- * `FAILING` → `GREY` → `PASSING`, và **bỏ qua** mục đang không đo được.
- *
- * Vì sao bỏ qua `UNMEASURED`: nếu một mục trong nhóm tạm thời không đo được còn
- * mục kia đã đạt, dòng gộp phải hiện **tích** — người dùng đã làm hết phần việc
- * của họ. Hiện dấu gạch lúc đó là bắt họ đi sửa một thứ không tồn tại.
+ * Mục đang hoạt động được hiện trước mục đã tích. Khi mục sau còn chờ
+ * (ví dụ zoom sau khoảng cách), dòng gộp phải hiện "chờ" thay vì xanh sớm.
  */
 internal fun groupRows(criteria: List<CriterionStatus>): List<Pair<String, CriterionStatus>> {
     fun rank(s: GateState) = when (s) {
@@ -166,8 +175,14 @@ internal fun groupRows(criteria: List<CriterionStatus>): List<Pair<String, Crite
     return criteria
         .groupBy { it.criterion.displayLabel }
         .map { (label, items) ->
-            val measured = items.filter { it.state != GateState.UNMEASURED }
-            val pick = (measured.ifEmpty { items }).minByOrNull { rank(it.state) }!!
+            val pick = items.minByOrNull {
+                when {
+                    it.pending -> 3
+                    it.skipped -> 3
+                    it.state == GateState.PASSING -> 4
+                    else -> rank(it.state)
+                }
+            }!!
             label to pick
         }
 }
@@ -210,16 +225,12 @@ fun CuePill(
         !personDetected -> Triple("○", "Đưa máy về phía mẫu", CueTone.NEUTRAL)
         // Đang đếm ngược: KHÔNG nhắc gì khác nữa, người ta đang tạo dáng.
         countdown != null -> Triple("●", "Giữ nguyên — $countdown", CueTone.OK)
-        // ⚠️ Đủ giống rồi thì ngừng bắt bẻ, chuyển sang giục tạo dáng. Cầm máy trên
-        // tay thì luôn có mục dao động quanh ngưỡng; nhắc sửa tiếp chỉ làm người ta
-        // loay hoay và bỏ lỡ khoảnh khắc.
-        readyToPose -> Triple("✓", "Đẹp rồi — tạo dáng đi, rồi bấm quay", CueTone.OK)
         cue != null -> Triple(if (cueForModel) "🗣" else "→", cue, CueTone.WARN)
+        readyToPose -> Triple("✓", "Góc máy đã ổn — chỉnh dáng rồi bấm quay", CueTone.OK)
         readyToCapture -> Triple("✓", "Đủ điều kiện rồi — bấm quay", CueTone.OK)
         !hasCriteria -> Triple("○", "Đang đo…", CueTone.NEUTRAL)
         // Không còn câu nhắc nào mà cũng chưa đủ: đang ở vùng đệm giữa hai ngưỡng.
-        // Nói rõ "giữ nguyên" thay vì im lặng — im lặng lúc này bị hiểu là app treo.
-        else -> Triple("◐", "Giữ nguyên như vậy…", CueTone.NEUTRAL)
+        else -> Triple("◐", "Gần đúng — giữ máy ổn định một chút", CueTone.NEUTRAL)
     }
 
     Row(

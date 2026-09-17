@@ -437,12 +437,10 @@ fun CaptureScreen(
 
             // Đang quay/chụp/xử lý thì không đếm — nếu không nó bấm chồng lên nhau.
             val busy = s.recording || s.burstTaken > 0 || s.processing
-            // ⚠️ HAI ĐƯỜNG cùng tính là "đạt", vì chúng bắt hai tình huống khác nhau:
-            //   readyToPose    — điểm giống mẫu đã trên ngưỡng
-            //   readyToCapture — mọi tiêu chí cùng xanh và tay đang đứng yên
-            // Đòi cả hai là đòi một thứ gần như không xảy ra; chỉ đòi cái đầu thì
-            // bỏ lỡ ca người dùng làm đúng hết mà điểm vẫn kẹt dưới ngưỡng.
-            val ready = s.readyToPose || s.readyToCapture
+            // Chỉ bắt đầu đếm sau khi toàn bộ quy trình đã hoàn tất. Mục
+            // không hội tụ sẽ được engine đánh dấu bỏ qua trước khi cờ này bật.
+            // `readyToPose` chỉ có nghĩa là đã tới giai đoạn hướng dẫn mẫu.
+            val ready = s.readyToCapture
             if (ready && !busy) lastReadyMs = now
 
             when {
@@ -648,6 +646,16 @@ fun CaptureScreen(
                         countdown = state.countdown,
                         hasCriteria = state.criteria.isNotEmpty(),
                         onClickWarning = { controller?.resetZoom() },
+                    )
+                    Text(
+                        if (state.autoMode) {
+                            "Tự động sẽ bỏ qua mục bị kẹt sau khoảng 6 giây."
+                        } else {
+                            "Bạn có thể bấm chụp bất cứ lúc nào."
+                        },
+                        color = Color(0xCCFFFFFF),
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 6.dp),
                     )
                     Spacer(Modifier.height(10.dp))
                     // Cong tac hai che do. An di trong luc dang quay/dang chup de

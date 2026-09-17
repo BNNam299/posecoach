@@ -370,6 +370,7 @@ class CaptureViewModel : ViewModel() {
             templateFrame = templateFrameForPose,
             liveFrame = if (detected) frame else null,
             minVis = minVisibility,
+            allowSkip = _state.value.autoMode,
         )
 
         _state.update {

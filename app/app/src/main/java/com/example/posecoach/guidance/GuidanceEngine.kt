@@ -12,6 +12,30 @@ import com.example.posecoach.template.Stage
 import com.example.posecoach.template.TemplateProfile
 
 /**
+ * Quy trình hướng dẫn cố định. Bước sau không được chen lên trước bước đang làm.
+ */
+internal enum class GuidanceStep {
+    MACHINE_LEVEL,
+    DISTANCE,
+    CAMERA_ANGLE,
+    ZOOM,
+    COMPOSITION,
+    MODEL_DIRECTION,
+    POSE,
+}
+
+internal fun guidanceStepOf(criterion: Criterion): GuidanceStep = when (criterion) {
+    Criterion.ROLL -> GuidanceStep.MACHINE_LEVEL
+    Criterion.PERSPECTIVE -> GuidanceStep.DISTANCE
+    Criterion.ELEVATION, Criterion.PITCH -> GuidanceStep.CAMERA_ANGLE
+    Criterion.SCALE -> GuidanceStep.ZOOM
+    Criterion.CENTER -> GuidanceStep.COMPOSITION
+    Criterion.YAW -> GuidanceStep.MODEL_DIRECTION
+    Criterion.POSE -> GuidanceStep.POSE
+    else -> GuidanceStep.COMPOSITION
+}
+
+/**
  * Kết quả hướng dẫn của MỘT khung hình.
  */
 data class GuidanceResult(
@@ -53,7 +77,9 @@ data class GuidanceResult(
     val readyToPose: Boolean = false,
 ) {
     val allPassed: Boolean
-        get() = statuses.isNotEmpty() && statuses.all { it.state == GateState.PASSING }
+        get() = statuses.isNotEmpty() && statuses.all {
+            !it.pending && (it.state == GateState.PASSING || it.skipped)
+        }
 }
 
 /**
@@ -75,7 +101,19 @@ class GuidanceEngine(private val profile: TemplateProfile) {
 
     /** Chỉ những mục ảnh mẫu này áp dụng, và chỉ những mục hướng dẫn được realtime. */
     private val applicable: List<Criterion> =
-        profile.activeFor(Stage.GUIDANCE).sortedBy { it.ordinal }
+        profile.activeFor(Stage.GUIDANCE).sortedWith(
+            compareBy<Criterion> { guidanceStepOf(it).ordinal }.thenBy { it.ordinal }
+        )
+
+    private val steps: List<List<Criterion>> = applicable
+        .groupBy(::guidanceStepOf)
+        .toSortedMap(compareBy<GuidanceStep> { it.ordinal })
+        .values
+        .toList()
+
+    private var currentStepIndex = 0
+    private var currentStepSinceMs: Long? = null
+    private val skipped = mutableSetOf<Criterion>()
 
     private val gates: Map<Criterion, CriterionGate> =
         applicable.associateWith { CriterionGate(it) }
@@ -141,6 +179,8 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         templateFrame: PoseFrame? = null,
         liveFrame: PoseFrame? = null,
         minVis: Float = 0.5f,
+        /** Chế độ tự động được phép bỏ qua một bước không hội tụ để tránh kẹt vô hạn. */
+        allowSkip: Boolean = false,
     ): GuidanceResult {
         // Chưa thấy người: xoá đồng hồ ổn định, nhưng KHÔNG reset các cổng —
         // mất dấu một lúc rồi bắt lại được thì không nên bắt người ta làm lại từ đầu.
@@ -175,7 +215,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
             abs(deviceRollDeg) >= DEVICE_ROLL_BLAME_DEG
         } else true
 
-        val statuses = applicable.map { c ->
+        var statuses = applicable.map { c ->
             // ⚠️ Mục ngửa/chúc phải lấy ngưỡng THEO ĐÚNG đường đo đã dùng cho khung
             // này. Đo bằng mặt mà xét bằng ngưỡng của đo bằng chân thì nhiễu lớn
             // hơn cả ngưỡng — tích sẽ nhấp nháy suốt.
@@ -243,11 +283,58 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 poseHint = if (c == Criterion.POSE && templateFrame != null && liveFrame != null) {
                     PoseDescriber.correction(templateFrame, liveFrame, minVis)
                 } else null,
+                targetZoom = if (c == Criterion.SCALE) targetZoomFor(t, live, zoomRatio) else null,
             )
+        }
+
+        // Chỉ một bước được hoạt động. Các bước sau hiện trạng thái "đang chờ" và
+        // không được sinh câu nhắc hoặc dấu tích trước lượt.
+        while (currentStepIndex < steps.size) {
+            val current = steps[currentStepIndex]
+            val done = current.all { c ->
+                c in skipped || statuses.first { it.criterion == c }.state == GateState.PASSING
+            }
+            if (!done) break
+            currentStepIndex++
+            currentStepSinceMs = null
+            presenter.reset()
+        }
+
+        val currentStep = steps.getOrNull(currentStepIndex)
+        if (currentStep != null) {
+            // Cảnh báo chuẩn bị đang che câu hướng dẫn, nên khoảng thời gian
+            // đó không được tính là người dùng đã thử mà vẫn bị kẹt.
+            if (!allowSkip || prepWarning != null) {
+                currentStepSinceMs = null
+            } else {
+                val since = currentStepSinceMs ?: nowMs.also { currentStepSinceMs = it }
+                if (nowMs - since >= AUTO_SKIP_AFTER_MS) {
+                    currentStep
+                        .filter { c -> statuses.first { it.criterion == c }.state != GateState.PASSING }
+                        .forEach(skipped::add)
+                    currentStepIndex++
+                    currentStepSinceMs = null
+                    presenter.reset()
+                }
+            }
+        }
+
+        val activeCriteria = steps.getOrNull(currentStepIndex).orEmpty().toSet()
+        val completedCriteria = steps.take(currentStepIndex).flatten().toSet()
+        statuses = statuses.map { status ->
+            when {
+                status.criterion in skipped -> status.copy(skipped = true)
+                // Bước đã hoàn tất được khoá cho tới hết phiên. Zoom hoặc chỉnh góc
+                // ở bước sau không được kéo người dùng quay lại bước cũ.
+                status.criterion in completedCriteria -> status.copy(state = GateState.PASSING)
+                status.criterion in activeCriteria -> status
+                else -> status.copy(pending = true)
+            }
         }
 
         // --- Chọn các mục đáng nhắc ---
         val failing = statuses
+            .filter { !it.pending && !it.skipped }
             .filter { s ->
                 when (s.state) {
                     GateState.FAILING -> {
@@ -276,56 +363,23 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                     else -> false
                 }
             }
-            .let { sapXepNhac(it) }
+            .sortedBy { it.criterion.ordinal }
             .let { gopCaoVaChuc(it) }
 
-        // ⚠️ THỨ TỰ HƯỚNG DẪN: MÁY TRƯỚC, MẪU SAU.
-        //
-        // Hướng của mẫu được đo TƯƠNG ĐỐI với vị trí máy. Bảo mẫu xoay khi người
-        // cầm máy còn đứng lệch thì lát nữa họ dịch chỗ, hướng vừa chỉnh lại sai —
-        // phải nói lại từ đầu. Mà nói với người mất 5-10 giây và có thể hiểu nhầm,
-        // trong khi dịch máy mất 2 giây và có phản hồi ngay trên màn hình.
-        //
-        // ⚠️ ĐỪNG NHẦM với việc hướng mẫu là tiêu chí SỐ 1 KHI CHẤM ĐIỂM — điều
-        // đó vẫn đúng (nó là hệ số nhân). Quan trọng khi chấm và làm trước khi
-        // hướng dẫn là hai chuyện khác nhau.
-        // ⚠️ MỤC KHÔNG ĐO ĐƯỢC KHÔNG ĐƯỢC COI LÀ "CHƯA SẠCH".
-        //
-        // Trước đây đòi mọi mục về máy phải PASSING. Mà mục không đo được thì KHÔNG
-        // BAO GIỜ thành PASSING, nên nó khoá vĩnh viễn mọi câu nhắc dành cho mẫu —
-        // và bản thân nó cũng không sinh câu nào vì nó không FAILING.
-        //
-        // Kết quả trên máy thật: app im lặng hoàn toàn, viên chữ hiện "Giữ nguyên
-        // như vậy…" mãi trong khi khung hình sai hẳn so với ảnh mẫu. Đúng ca đã gặp
-        // ngày 04/09/2026 — ảnh mẫu toàn thân, người đứng sát máy nên không thấy
-        // chân, ba mục về khung hình cùng tắt một lúc.
-        //
-        // Quy tắc số 4: không đo được KHÁC với sai. Nó không chặn gì cả.
+        // Chỉ khi toàn bộ bước về máy đã hoàn tất hoặc được bỏ qua
+        // thì mới chuyển sang hướng mẫu. GREY/UNMEASURED không phải là đã xong.
         val cameraClean = statuses
             .filter { !it.criterion.forModel }
-            // ⚠️ CHỈ `FAILING` MỚI CHẶN. Vàng (GREY) là **chấp nhận được** — nó là
-            // vùng đệm chống nhấp nháy, không phải trạng thái sai. Coi vàng là chưa
-            // sạch thì gần như không bao giờ tới lượt nhắc dáng: cầm máy trên tay
-            // thì lúc nào cũng có một mục đang ở vùng đệm.
-            //
-            // Người dùng báo đúng triệu chứng này (07/09/2026): *"cũng không có
-            // phần nhắc nhở về dáng của mẫu"*.
-            .none { it.state == GateState.FAILING }
-
-        // NGOẠI LỆ: mẫu sai hướng RẤT NHIỀU (quay lưng trong khi ảnh mẫu quay mặt)
-        // thì nói ngay. Việc đó mất thời gian và gần như không đổi theo mấy bước
-        // chân của người cầm máy, nên chờ là phí.
-        val grossYaw = statuses.firstOrNull {
-            it.criterion == Criterion.YAW && (it.deviation ?: 0.0) > GROSS_YAW_DEG
-        }
+            .all { !it.pending && (it.state == GateState.PASSING || it.skipped) }
 
         // Mục ÁP DỤNG mà khung hình không đo được, kéo dài đủ lâu. Ưu tiên THẤP
         // NHẤT: có mục nào đang lệch thật thì sửa cái đó trước, vì lùi ra cho thấy
         // đầu gối trong khi còn đứng sai chỗ là bắt người ta làm hai lần.
-        val stuckUnmeasured = statuses.filter { it.unmeasuredTooLong }
+        val stuckUnmeasured = statuses.filter {
+            !it.pending && !it.skipped && it.unmeasuredTooLong
+        }
 
         var cueCandidates = when {
-            grossYaw != null && grossYaw.state == GateState.FAILING -> listOf(grossYaw)
             cameraClean -> failing
             else -> failing.filter { !it.criterion.forModel }
         }.ifEmpty { stuckUnmeasured }
@@ -358,8 +412,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         //
         // "Sẵn sàng" phải có nghĩa là *app đã nhìn đủ và mọi thứ đều đạt*, chứ
         // không phải *app không nhìn thấy gì để chê*.
-        val readyToPose = match != null && match >= READY_PERCENT &&
-            stuckUnmeasured.isEmpty()
+        val readyToPose = cameraClean
 
         // Cầm máy sai thì mọi phép đo phía sau đều vô nghĩa — nói đúng một việc đó.
         // ⚠️ ĐỦ GIỐNG RỒI THÌ CHUYỂN SANG NHẮC DÁNG, KHÔNG PHẢI IM LẶNG.
@@ -407,8 +460,10 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         // --- Cổng chụp ---
         val steady = angularSpeedDegPerSec <= GuidanceTiming.MAX_ANGULAR_SPEED_DEG_PER_SEC
 
-        val allPassing = statuses.isNotEmpty() && statuses.all { it.state == GateState.PASSING }
-        val good = prepWarning == null && allPassing && steady
+        val allResolved = statuses.isNotEmpty() && statuses.all {
+            !it.pending && (it.state == GateState.PASSING || it.skipped)
+        }
+        val good = prepWarning == null && allResolved && steady
 
         if (good) {
             if (allGoodSinceMs == null) allGoodSinceMs = nowMs
@@ -427,6 +482,16 @@ class GuidanceEngine(private val profile: TemplateProfile) {
             stableForMs = stableFor,
             cueForModel = cueForModel,
         )
+    }
+
+    /** Zoom đích ở nguyên vị trí hiện tại: kích thước trong khung tỉ lệ thuận với zoom. */
+    private fun targetZoomFor(
+        template: PoseMeasurement,
+        live: PoseMeasurement,
+        currentZoom: Float,
+    ): Float? = ShotScorer.scalePair(template, live)?.let { (target, current) ->
+        if (current <= 1e-6) null
+        else (currentZoom * (target / current)).toFloat().coerceAtLeast(0.1f)
     }
 
     /**
@@ -491,16 +556,11 @@ class GuidanceEngine(private val profile: TemplateProfile) {
 
     /** Mở cho test đọc ngưỡng, không phải để nơi khác gọi tuỳ tiện. */
     internal companion object {
-        /**
-         * Lệch hướng quá mức này thì nói NGAY, không chờ chỉnh máy xong.
-         *
-         * 90° là ranh giới giữa "xoay người một chút" và "đang quay sai hẳn phía".
-         * Việc thứ hai mất thời gian nên chờ là phí.
-         */
-        const val GROSS_YAW_DEG = 90.0
-
         /** Giữ im các mục về máy ngần này sau khi bắt đầu nói với mẫu. */
         const val MODEL_CUE_FREEZE_MS = 4_000L
+
+        /** Khoảng ba chu kỳ câu nhắc; sau đó chế độ tự động được phép đi tiếp. */
+        const val AUTO_SKIP_AFTER_MS = GuidanceTiming.CUE_MIN_DISPLAY_MS * 3
 
         /**
          * Máy vẹo từ mức này trở lên thì coi LỖI Ở MÁY, dưới mức đó thì lỗi ở mẫu.
@@ -509,13 +569,10 @@ class GuidanceEngine(private val profile: TemplateProfile) {
          * nên vẹo 1-2° là bình thường, không đáng đổ lỗi cho máy.
          */
         /**
-         * Đủ giống tới mức này thì NGỪNG bắt bẻ, chuyển sang bảo người ta chuẩn bị.
+         * Mốc điểm dùng cho hiển thị mức giống và các bài kiểm thử chấm điểm.
          *
-         * ⚠️ Vì sao không đợi đủ 8/8 tích: cầm máy trên tay thì luôn có một hai mục
-         * dao động quanh ngưỡng. Đòi tất cả cùng xanh một lúc là đòi một thứ gần
-         * như không xảy ra, và người dùng bị nhắc sửa vặt mãi không dứt.
-         *
-         * 85 là mức PO chốt sau buổi test 06/09/2026.
+         * Engine tuần tự không còn dùng riêng con số này để nhảy thẳng sang dáng;
+         * phải hoàn tất hoặc bỏ qua các bước về máy trước.
          */
         const val READY_PERCENT = 85
 
@@ -540,52 +597,6 @@ class GuidanceEngine(private val profile: TemplateProfile) {
          * Mất tin cậy thì quay về mặc định "nhắc máy" — đúng luật máy trước mẫu sau.
          */
         const val DEVICE_ROLL_TRUST_PITCH_DEG = 60.0
-    }
-
-    /**
-     * SẮP THỨ TỰ NHẮC — theo thói quen người chụp, không theo danh sách cứng.
-     *
-     * ## Quan sát của PO (12/09/2026)
-     *
-     * *"Khi thấy ảnh mẫu, user sẽ chủ động tạo dáng và đưa góc máy theo template
-     * TRƯỚC CẢ KHI được hướng dẫn."*
-     *
-     * Nghĩa là tới lúc app mở miệng, người ta đã tự làm xong phần lớn. App nên là
-     * **vòng sửa phần còn lại**, không phải người dẫn đi từ đầu. Đi tuần tự từ
-     * đầu danh sách thì nó có thể càm ràm về lệch tâm 6% trong khi góc máy đang
-     * sai 40° — thứ mắt người nhìn thấy ngay và đang định sửa.
-     *
-     * ## Hai chế độ
-     *
-     * | Tình huống | Xếp theo | Vì sao |
-     * |---|---|---|
-     * | Còn ≥ 2 mục sai **be bét** (quá 3 lần ngưỡng) | thứ tự tài liệu | lúc này các bước phá nhau thật, phải đi tuần tự |
-     * | Đã gần đúng | **mức sai lớn nhất trước** | trùng với thứ user đang định sửa |
-     *
-     * Lý do giữ thứ tự cứng cho ca be bét, trích tài liệu: *"Tiến/lùi làm đổi
-     * luôn kích thước mẫu. Nâng/hạ máy làm đổi góc ngửa/chúc. Làm ngược thứ tự
-     * thì bước sau phá bước trước."*
-     *
-     * ⚠️ Không sợ nhấp nháy: luật một câu tối thiểu 2 giây ở `CuePresenter` vẫn
-     * giữ nguyên, nên thứ tự đổi không làm chữ nhảy.
-     */
-    private fun sapXepNhac(ds: List<CriterionStatus>): List<CriterionStatus> {
-        fun mucSai(s: CriterionStatus): Double {
-            // Không đo được thì xếp trên cùng: app đang không nhìn thấy, mọi câu
-            // sửa khác đều là đoán.
-            val d = s.deviation ?: return Double.MAX_VALUE
-            val a = s.band?.accept ?: return 0.0
-            return if (a <= 1e-9) 0.0 else d / a
-        }
-        val beBet = ds.count { mucSai(it) > 3.0 && it.deviation != null }
-        return if (beBet >= 2) {
-            ds.sortedBy { it.criterion.ordinal }
-        } else {
-            ds.sortedWith(
-                compareByDescending<CriterionStatus> { mucSai(it) }
-                    .thenBy { it.criterion.ordinal }
-            )
-        }
     }
 
     /** Lần đầu máy đứng yên. `null` = chưa yên lần nào kể từ khi mở màn chụp. */
@@ -678,5 +689,8 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         presenter.reset()
         validFrames = 0
         allGoodSinceMs = null
+        currentStepIndex = 0
+        currentStepSinceMs = null
+        skipped.clear()
     }
 }

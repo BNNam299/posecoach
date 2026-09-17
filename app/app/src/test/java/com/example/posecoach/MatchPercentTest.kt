@@ -13,11 +13,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * ĐIỂM GIỐNG MẪU có thật sự chạm tới ngưỡng bật tự động không.
+ * ĐIỂM GIỐNG MẪU có phản ánh đúng mức độ lệch không.
  *
- * Ngưỡng `READY_PERCENT` = 85. Nếu điểm không bao giờ lên tới đó thì chế độ tự động
- * **không bao giờ kích hoạt**, và người dùng chỉ thấy nó "không chạy" mà không biết
- * vì sao.
+ * `READY_PERCENT` = 85 chỉ còn là mốc hiển thị/tham chiếu. Engine tuần tự
+ * không dùng riêng điểm này để nhảy qua các bước hướng dẫn.
  */
 class MatchPercentTest {
 
@@ -77,12 +76,12 @@ class MatchPercentTest {
     }
 
     @Test
-    fun `lech nhe van phai tren nguong bat tu dong`() {
+    fun `lech nhe van phai tren moc hien thi tot`() {
         // Dịch cả người sang ngang 2% bề ngang khung — cỡ rung tay bình thường.
         val p = match(nguoi(), nguoi(dx = 0.02))
         assertNotNull(p)
         assertTrue(
-            "Lệch nhẹ mà tụt xuống $p thì chế độ tự động không bao giờ kích hoạt",
+            "Lệch nhẹ mà tụt xuống $p thì mốc hiển thị không còn hợp lý",
             p!! >= GuidanceEngine.READY_PERCENT,
         )
     }
@@ -91,7 +90,7 @@ class MatchPercentTest {
      * ⚠️ GHI NHẬN MỘT ĐIỀU ĐÁNG NGỜ, chưa đủ căn cứ để chốt là lỗi.
      *
      * Dịch cả người sang ngang **25% bề ngang khung** — lệch rất rõ bằng mắt — mà
-     * điểm vẫn khoảng 86, tức vẫn trên ngưỡng bật tự động.
+     * điểm vẫn khoảng 86, tức vẫn trên mốc hiển thị "tốt".
      *
      * Lý do: điểm là trung bình có trọng số của 8 mục, mà phép dịch ngang chỉ làm
      * hỏng ĐÚNG MỘT mục (lệch trái/phải). Bảy mục kia vẫn khớp hoàn hảo nên kéo

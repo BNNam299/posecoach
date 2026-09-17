@@ -2,6 +2,7 @@ package com.example.posecoach
 
 import com.example.posecoach.media.MediaLibrary
 import com.example.posecoach.guidance.GuidanceEngine
+import com.example.posecoach.guidance.guidanceStepOf
 import com.example.posecoach.measure.Measurer
 import com.example.posecoach.pose.FramingClass
 import com.example.posecoach.pose.Lm
@@ -106,40 +107,36 @@ class ThoiQuenChupTest {
     }
 
     // =================================================================
-    // Thứ tự nhắc: sai nhiều nhất trước
+    // Thứ tự nhắc: quy trình cố định, bước sau không chen lên
     // =================================================================
 
-    /**
-     * Luật trong `GuidanceEngine.sapXepNhac`, viết lại ở đây để khoá ý định.
-     *
-     * Còn ≥ 2 mục sai be bét thì đi theo thứ tự tài liệu (lúc đó các bước phá
-     * nhau thật). Đã gần đúng rồi thì nói cái sai nhất trước — trùng với thứ
-     * người dùng đang định sửa.
-     */
-    private fun sapXep(ds: List<Pair<Int, Double>>): List<Int> {
-        val beBet = ds.count { it.second > 3.0 }
-        return if (beBet >= 2) ds.sortedBy { it.first }.map { it.first }
-        else ds.sortedWith(compareByDescending<Pair<Int, Double>> { it.second }
-            .thenBy { it.first }).map { it.first }
-    }
-
     @Test
-    fun `da gan dung thi noi cai SAI NHAT truoc, khong theo thu tu cung`() {
-        // Mục 5 (thứ tự 5) đang sai 2,5 lần ngưỡng; mục 1 (thứ tự 1) sai 1,2 lần.
-        // Mắt người nhìn thấy cái sai 2,5 lần trước.
-        assertEquals(listOf(5, 1), sapXep(listOf(1 to 1.2, 5 to 2.5)))
-    }
+    fun `xoay thang may roi lui va chinh goc truoc khi zoom`() {
+        val thuTu = listOf(
+            Criterion.POSE,
+            Criterion.PITCH,
+            Criterion.SCALE,
+            Criterion.YAW,
+            Criterion.PERSPECTIVE,
+            Criterion.ROLL,
+            Criterion.ELEVATION,
+            Criterion.CENTER,
+        ).sortedWith(compareBy<Criterion> { guidanceStepOf(it).ordinal }.thenBy { it.ordinal })
 
-    @Test
-    fun `sai be bet thi quay ve thu tu tai lieu`() {
-        // Hai mục cùng sai quá 3 lần ngưỡng: lúc này các bước phá nhau thật —
-        // "tiến/lùi làm đổi kích thước mẫu, nâng/hạ máy làm đổi góc ngửa chúc".
-        assertEquals(listOf(1, 5), sapXep(listOf(5 to 6.0, 1 to 4.0)))
-    }
-
-    @Test
-    fun `lech bang nhau thi thu tu tai lieu phan xu`() {
-        assertEquals(listOf(1, 5), sapXep(listOf(5 to 2.0, 1 to 2.0)))
+        assertEquals(
+            listOf(
+                Criterion.ROLL,
+                Criterion.PERSPECTIVE,
+                Criterion.ELEVATION,
+                Criterion.PITCH,
+                Criterion.SCALE,
+                Criterion.CENTER,
+                Criterion.YAW,
+                Criterion.POSE,
+            ),
+            thuTu,
+        )
+        assertTrue(guidanceStepOf(Criterion.PITCH).ordinal < guidanceStepOf(Criterion.POSE).ordinal)
     }
 
     // =================================================================

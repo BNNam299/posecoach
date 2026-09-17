@@ -1741,6 +1741,9 @@ lần đảo — chẵn thì triệt tiêu, lẻ thì không.
 
 ## 55. VÀNG là chấp nhận được, không phải "chưa sạch"
 
+> ⚠️ **ĐÃ BỊ MỤC 92 THAY THẾ CHO VIỆC CHUYỂN BƯỚC.** Vàng vẫn chống nhấp nháy,
+> nhưng chưa được coi là hoàn tất để cho hướng dẫn tạo dáng chen vào.
+
 **Sai:** `cameraClean = mọi mục về máy đều PASSING (hoặc UNMEASURED)`.
 
 **Đúng:** `cameraClean = không mục nào FAILING`.
@@ -1861,6 +1864,9 @@ vùng đệm, không sinh câu nhắc nào mà cũng không bao giờ đóng tí
 ---
 
 ## 61. Điều kiện bật tự động phải có HAI đường
+
+> ⚠️ **ĐÃ BỊ MỤC 92 THAY THẾ.** Chế độ tuần tự chỉ bắt đầu đếm khi
+> toàn bộ bước đã đạt hoặc được ghi rõ là `bỏ qua`.
 
 **Sai:** chỉ `readyToPose` (điểm ≥ 85).
 
@@ -2177,6 +2183,9 @@ cải tiến — tính độc lập của hai PHÉP ĐO không bắt buộc hai 
 ---
 
 ## 74. Thứ tự hướng dẫn cứng đi ngược thói quen người chụp
+
+> ⚠️ **ĐÃ BỊ MỤC 92 THAY THẾ.** Test máy thật cho thấy ưu tiên động làm các thao
+> tác phụ thuộc nhau giành quyền qua lại; quy trình hiện dùng thứ tự theo bước.
 
 **Sai:** luôn nhắc theo thứ tự tài liệu (hướng mẫu → xa/gần → cao/thấp → …).
 
@@ -2526,3 +2535,19 @@ thẳng, nhưng trục thân đọc +17° (như chụp từ dưới lên); app b
 chưa đạt. Con số trục thân lẫn **dáng đứng** (tay đút túi, ngả người) và **ống kính**
 (studio ống dài từ xa khác điện thoại ở gần). Bảng quy đổi mục 87 đo trên một người
 đứng thẳng, một điện thoại, nên chỉ đúng với đúng ca đó. ⚠️ Mục 87 và 89 đã bị thay thế.
+
+## 92. Ưu tiên động không thay thế được một quy trình hướng dẫn tuần tự
+
+**Sai:** cho mọi tiêu chí chạy cùng lúc rồi mỗi khung chọn mục đang sai nhiều nhất.
+`Chỗ đứng` và `Khung hình` cùng đổi khi người dùng lùi hoặc zoom, nên hai câu giành
+quyền qua lại; trạng thái vàng của góc máy còn cho phép câu tạo dáng chen lên.
+
+**Đúng:** hướng dẫn theo bước cố định: xoay thẳng máy → khoảng cách → góc/độ cao → zoom → bố cục → hướng
+mẫu → dáng. Bước hoàn tất được khoá tới hết phiên; bước sau hiện `chờ` và không sinh
+câu hoặc dấu tích sớm. Chế độ tự động được đánh dấu `bỏ qua`, không tô xanh giả, nếu
+một bước không hội tụ sau khoảng 6 giây.
+
+**Vì sao:** lùi và zoom là hai thao tác cùng tác động lên kích thước người trong khung.
+Nếu không khoá thứ tự, làm đúng câu sau có thể làm tiêu chí câu trước mở lại, tạo vòng
+lặp. Với người dùng, một danh sách dấu tích còn dang dở cũng mang nghĩa “chưa được
+chụp”, nên chế độ bấm tay phải nói rõ rằng họ có thể chụp bất cứ lúc nào.

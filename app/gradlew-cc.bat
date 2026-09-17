@@ -13,7 +13,7 @@ REM ⚠️ Đường dẫn dưới đây RIÊNG CHO MÁY NÀY. Máy khác cài A
 REM    khác thì sửa lại dòng set bên dưới.
 REM ---------------------------------------------------------------------------
 
-if "%JAVA_HOME%"=="" set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+if "%JAVA_HOME%"=="" set "JAVA_HOME=C:\Users\nambn\AppData\Local\Programs\Temurin\jdk-17.0.20.1+1"
 
 call "%~dp0gradlew.bat" %*
 exit /b %ERRORLEVEL%

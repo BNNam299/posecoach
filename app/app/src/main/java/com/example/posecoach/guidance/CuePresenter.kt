@@ -109,6 +109,12 @@ data class CriterionStatus(
     val mayNguocChieu: Boolean = false,
     /** Khoảng cách chỉnh bằng co/duỗi TAY, không phải bằng bước chân. */
     val tamTay: Boolean = false,
+    /** Chưa tới lượt xử lý vì một bước trước trong quy trình chưa xong. */
+    val pending: Boolean = false,
+    /** Đã thử đủ lâu trong chế độ tự động nhưng không hội tụ; cho phép đi tiếp. */
+    val skipped: Boolean = false,
+    /** Mức zoom đề nghị sau khi chỗ đứng đã được khoá. */
+    val targetZoom: Float? = null,
 ) {
     /**
      * Câu của mục này, TRONG khung hình này, là câu để ĐỌC TO CHO MẪU NGHE.
@@ -368,6 +374,10 @@ internal fun cueTextFor(status: CriterionStatus): String {
                 "Lùi lại " + status.stepsPhrase() + ", hoặc zoom ra từ từ đến khi tích sáng"
             } else {
                 "Tiến lên " + status.stepsPhrase() + ", hoặc zoom vào từ từ đến khi tích sáng"
+            }
+            status.targetZoom != null -> {
+                val muc = "%.1f".format(status.targetZoom).replace(',', '.')
+                "Đặt zoom khoảng ${muc}x đến khi tích sáng"
             }
             signed > 0 -> "Zoom ra từ từ đến khi tích sáng"
             else -> "Zoom vào từ từ đến khi tích sáng"
