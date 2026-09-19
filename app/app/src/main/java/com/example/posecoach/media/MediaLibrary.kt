@@ -45,7 +45,7 @@ object MediaLibrary {
      * ⚠️ Chỉ xoá ảnh **do app cài sẵn** — ảnh người dùng tự chọn từ máy KHÔNG bị
      * đụng tới. Danh sách ảnh cài sẵn ghi trong chính file đánh dấu.
      */
-    private const val SEED_MARKER = ".da-nap-anh-mau-v7"
+    private const val SEED_MARKER = ".da-nap-anh-mau-v8"
 
     private val IMAGE_EXT = setOf("jpg", "jpeg", "png", "webp", "jfif")
 
@@ -145,7 +145,7 @@ object MediaLibrary {
 
     /**
      * NHÃN KIỂU CHỤP TỪ TRÊN CAO — từ THỨ HAI sau tiền tố nhóm, chỉ có nghĩa khi từ
-     * thứ nhất là `tren`: `tren-gan-…` · `tren-rong-…` · `tren-xa-…`. Xem [KieuChupTren].
+     * thứ nhất là `tren`: `tren-gan-…` · `tren-xa-…` (`tren-rong-…` cũ đọc thành gần). Xem [KieuChupTren].
      */
     fun kieuChupTrenTheoNhan(nameWithoutExtension: String): KieuChupTren? {
         if (GocMayNhan.cua(nameWithoutExtension) != GocMayNhan.TREN) return null

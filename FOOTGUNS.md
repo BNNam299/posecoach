@@ -2639,3 +2639,7 @@ ngang) — ảnh mẫu để ở `test-media/11-tren-cao-khoang-cach/`.
 bề ngang tai/cổ chân (chuẩn hoá theo bề ngang thật) — gần 1x +0,48…+0,56, góc rộng
 +0,39…+0,81, từ xa −0,19…+0,34 (trừ một ảnh +0,81). **Gần 1x và góc rộng chồng lên nhau
 hoàn toàn**; gần/xa có tách nhưng mới 3–5 ảnh mỗi nhóm có đủ cổ chân. Chưa đủ để bỏ câu hỏi.
+
+**Chốt 19/09/2026:** gộp 1x và 0.5x thành `gan` (nhãn `rong` cũ đọc thành `gan`). Đứng gần
+thì mọi mức zoom từ mức nhỏ nhất của máy tới 1x đều được; chỉ nhắc khi zoom vào quá 1x.
+Câu tiến sát gợi ý "giữ 1x, hoặc zoom ra 0.5–0.7x nếu muốn kiểu mắt cá" (máy có góc rộng).

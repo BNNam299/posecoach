@@ -108,10 +108,12 @@ data class CriterionStatus(
     val skipped: Boolean = false,
     /** Mức zoom đề nghị sau khi chỗ đứng đã được khoá. */
     val targetZoom: Float? = null,
-    /** Ảnh mẫu chụp từ trên cao với mức zoom BẮT BUỘC (gần 1x, góc rộng 0.5x). Xem `KieuChupTren`. */
-    val zoomYeuCau: Float? = null,
-    /** Máy đang lệch mức zoom bắt buộc. */
+    /** Ảnh mẫu chụp từ trên cao, đứng gần: zoom không được vượt mức này (1x). Xem `KieuChupTren`. */
+    val zoomToiDa: Float? = null,
+    /** Máy đang zoom vào quá [zoomToiDa]. */
     val zoomSai: Boolean = false,
+    /** Máy có ống góc rộng (zoom ra dưới 1x được) — mới gợi ý kiểu mắt cá. */
+    val coGocRong: Boolean = false,
     /** Ảnh mẫu chụp từ trên cao, đứng xa rồi zoom. */
     val chupTuXa: Boolean = false,
     /** Đã đứng đủ xa (theo ước lượng) cho kiểu chụp từ xa. */
@@ -360,13 +362,13 @@ internal fun cueTextFor(status: CriterionStatus): String {
         // xem `GuidanceEngine`, nó truyền cờ này vào.
         Criterion.SCALE -> when {
             // ẢNH MẪU CHỤP TỪ TRÊN CAO có nhãn kiểu chụp — xem `KieuChupTren`.
-            status.zoomYeuCau != null && status.zoomSai ->
-                "Chuyển zoom về ${nhanZoom(status.zoomYeuCau)} đến khi tích sáng"
-            status.zoomYeuCau != null -> if (signed > 0) {
-                "Lùi lại " + status.stepsPhrase() + ", giữ zoom " + nhanZoom(status.zoomYeuCau)
-            } else {
-                "Tiến sát vào " + status.stepsPhrase() + ", giữ zoom " + nhanZoom(status.zoomYeuCau)
-            }
+            status.zoomToiDa != null && status.zoomSai ->
+                "Đưa zoom về ${nhanZoom(status.zoomToiDa)} hoặc nhỏ hơn đến khi tích sáng"
+            status.zoomToiDa != null && signed > 0 -> "Lùi lại " + status.stepsPhrase()
+            status.zoomToiDa != null && status.coGocRong ->
+                "Tiến sát vào " + status.stepsPhrase() +
+                    " — giữ 1x, hoặc zoom ra 0.5–0.7x nếu muốn kiểu mắt cá"
+            status.zoomToiDa != null -> "Tiến sát vào " + status.stepsPhrase() + ", giữ zoom 1x"
             status.chupTuXa && !status.duXa ->
                 "Lùi ra xa thêm " + status.stepsPhrase() + ", rồi zoom vào"
             status.chupTuXa && status.targetZoom != null ->

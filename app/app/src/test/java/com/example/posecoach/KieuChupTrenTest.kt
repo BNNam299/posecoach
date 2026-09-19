@@ -26,7 +26,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
 /**
- * KIỂU CHỤP TỪ TRÊN CAO (19/09/2026) — gần 1x / góc rộng 0.5x / từ xa rồi zoom.
+ * KIỂU CHỤP TỪ TRÊN CAO (19/09/2026) — đứng gần (1x hoặc 0.5x) / từ xa rồi zoom.
  * Chỉ ảnh người khác chụp nhãn "trên cao", chỉ đổi mục khung hình.
  */
 class KieuChupTrenTest {
@@ -37,8 +37,9 @@ class KieuChupTrenTest {
     // ---------------- Nhãn trong tên file ----------------
 
     @Test
-    fun `doc dung nhan thu hai sau tren`() {
-        assertEquals(KieuChupTren.GOC_RONG, MediaLibrary.kieuChupTrenTheoNhan("tren-rong-kinh-ram-tai-nghe"))
+    fun `doc dung nhan thu hai sau tren, nhan rong cu thanh gan`() {
+        assertEquals(KieuChupTren.GAN, MediaLibrary.kieuChupTrenTheoNhan("tren-gan-kinh-ram-tai-nghe"))
+        assertEquals(KieuChupTren.GAN, MediaLibrary.kieuChupTrenTheoNhan("tren-rong-kinh-ram-tai-nghe"))
         assertEquals(KieuChupTren.XA_ZOOM, MediaLibrary.kieuChupTrenTheoNhan("tren-xa-toc-hong-ben-be-boi"))
         assertNull(MediaLibrary.kieuChupTrenTheoNhan("tren-kinh-ram"))
         // Không phải "trên cao" thì từ thứ hai không phải nhãn.
@@ -47,7 +48,7 @@ class KieuChupTrenTest {
 
     @Test
     fun `ten hien thi bo ca hai nhan`() {
-        assertEquals("kinh ram tai nghe", MediaLibrary.Template(tmp.newFile("tren-rong-kinh-ram-tai-nghe.jpg")).displayName)
+        assertEquals("kinh ram tai nghe", MediaLibrary.Template(tmp.newFile("tren-gan-kinh-ram-tai-nghe.jpg")).displayName)
         assertEquals("kinh ram", MediaLibrary.Template(tmp.newFile("tren-kinh-ram.jpg")).displayName)
         assertEquals("nam nen trang", MediaLibrary.Template(tmp.newFile("ngang-nam-nen-trang.jpg")).displayName)
     }
@@ -55,12 +56,11 @@ class KieuChupTrenTest {
     @Test
     fun `gan nhan anh nhap va doi y gan lai`() {
         val f = tmp.newFile("${MediaLibrary.TIEN_TO_NHAP}123.jpg")
-        val lan1 = MediaLibrary.ganNhan(f, TemplateKind.PHOTOGRAPHER, GocMayNhan.TREN, KieuChupTren.GAN_1X)
+        val lan1 = MediaLibrary.ganNhan(f, TemplateKind.PHOTOGRAPHER, GocMayNhan.TREN, KieuChupTren.GAN)
         assertEquals("tren-gan-toi-chon-123.jpg", lan1.name)
-        val lan2 = MediaLibrary.ganNhan(lan1, TemplateKind.PHOTOGRAPHER, GocMayNhan.NGANG, KieuChupTren.GAN_1X)
+        val lan2 = MediaLibrary.ganNhan(lan1, TemplateKind.PHOTOGRAPHER, GocMayNhan.NGANG, KieuChupTren.GAN)
         assertEquals("Góc ngang thì không ghi kiểu chụp trên cao", "ngang-toi-chon-123.jpg", lan2.name)
     }
-
     // ---------------- Câu nhắc ----------------
 
     private fun frameOf(vararg e: Pair<Int, Triple<P2, Float, P3>>): PoseFrame {
@@ -114,27 +114,35 @@ class KieuChupTrenTest {
     }
 
     @Test
-    fun `goc rong ma dang 1x thi bao chuyen zoom ve 0_5x du co nguoi da khop`() {
-        val r = chay(KieuChupTren.GOC_RONG, zoom = 1f, heSoCo = 1.0)
-        assertEquals("Chuyển zoom về 0.5x đến khi tích sáng", r.cue)
+    fun `dung gan ma dang zoom vao qua 1x thi bao dua zoom ve`() {
+        val r = chay(KieuChupTren.GAN, zoom = 2f, heSoCo = 1.0)
+        assertEquals("Đưa zoom về 1x hoặc nhỏ hơn đến khi tích sáng", r.cue)
     }
 
     @Test
-    fun `goc rong da 0_5x ma nguoi nho thi tien sat, giu 0_5x`() {
-        val r = chay(KieuChupTren.GOC_RONG, zoom = 0.5f, heSoCo = 0.6)
-        assertTrue(r.cue, r.cue!!.startsWith("Tiến sát vào") && r.cue!!.endsWith("giữ zoom 0.5x"))
+    fun `dung gan nguoi nho thi tien sat, goi y ca 1x lan kieu mat ca`() {
+        val r = chay(KieuChupTren.GAN, zoom = 1f, heSoCo = 0.6)
+        assertTrue(r.cue, r.cue!!.startsWith("Tiến sát vào") && r.cue!!.contains("0.5–0.7x"))
     }
 
     @Test
-    fun `gan 1x ma nguoi to qua thi lui lai, giu 1x`() {
-        val r = chay(KieuChupTren.GAN_1X, zoom = 1f, heSoCo = 1.6)
-        assertTrue(r.cue, r.cue!!.startsWith("Lùi lại") && r.cue!!.endsWith("giữ zoom 1x"))
+    fun `dung gan o 0_5x cung duoc, khong bat doi zoom`() {
+        val r = chay(KieuChupTren.GAN, zoom = 0.5f, heSoCo = 1.0)
+        assertFalse(r.cue ?: "", (r.cue ?: "").contains("zoom về"))
+        val scale = r.statuses.first { it.criterion == Criterion.SCALE }
+        assertFalse(scale.zoomSai)
     }
 
     @Test
-    fun `may khong co ong goc rong thi khong bat 0_5x`() {
-        val r = chay(KieuChupTren.GOC_RONG, zoom = 1f, heSoCo = 1.0, zoomMin = 1f)
-        assertFalse(r.cue ?: "", (r.cue ?: "").contains("Chuyển zoom"))
+    fun `dung gan nguoi to qua thi chi bao lui, khong ep zoom`() {
+        val r = chay(KieuChupTren.GAN, zoom = 1f, heSoCo = 1.6)
+        assertTrue(r.cue, r.cue!!.startsWith("Lùi lại") && !r.cue!!.contains("zoom"))
+    }
+
+    @Test
+    fun `may khong co ong goc rong thi khong goi y mat ca`() {
+        val r = chay(KieuChupTren.GAN, zoom = 1f, heSoCo = 0.6, zoomMin = 1f)
+        assertTrue(r.cue, r.cue!!.endsWith("giữ zoom 1x"))
     }
 
     @Test
@@ -148,12 +156,12 @@ class KieuChupTrenTest {
         val r = chay(null, zoom = 1f, heSoCo = 1.6)
         assertTrue(r.cue, r.cue!!.contains("hoặc zoom ra"))
         val scale = r.statuses.first { it.criterion == Criterion.SCALE }
-        assertNull(scale.zoomYeuCau)
+        assertNull(scale.zoomToiDa)
     }
 
     @Test
     fun `selfie khong bi nhan nay tac dong`() {
-        val r = chay(KieuChupTren.GOC_RONG, zoom = 1f, heSoCo = 1.0, mode = ShootMode.TU_CHUP_CAM_TRUOC)
-        assertFalse(r.cue ?: "", (r.cue ?: "").contains("Chuyển zoom"))
+        val r = chay(KieuChupTren.GAN, zoom = 2f, heSoCo = 1.0, mode = ShootMode.TU_CHUP_CAM_TRUOC)
+        assertFalse(r.cue ?: "", (r.cue ?: "").contains("zoom về"))
     }
 }

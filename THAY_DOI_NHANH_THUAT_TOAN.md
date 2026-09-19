@@ -46,10 +46,10 @@ tự bỏ khi người trong ảnh mẫu nằm quá xa giữa khung.
 | Nhãn | Ảnh |
 |---|---|
 | Ngang tầm | nam nền trắng tay túi · nữ nền trắng mũ xanh · đi bộ bên hồ · quay lưng công viên · ngồi gốc cây · 2 ảnh gương · selfie kéo cổ áo |
-| Trên cao | kính râm tai nghe (góc rộng 0.5x) · tóc hồng bên bể bơi (từ xa rồi zoom) · selfie tai nghe nhìn nghiêng |
+| Trên cao | kính râm tai nghe (đứng gần) · tóc hồng bên bể bơi (từ xa rồi zoom) · selfie tai nghe nhìn nghiêng |
 | Dưới thấp | ngồi ghế giữa đồng · selfie nền trời xanh |
 
-Bộ ảnh cài sẵn đã lên phiên bản **v7**: lần mở app đầu tiên sau khi cài sẽ tự thay bộ cũ,
+Bộ ảnh cài sẵn đã lên phiên bản **v8**: lần mở app đầu tiên sau khi cài sẽ tự thay bộ cũ,
 giữ nguyên ảnh người dùng tự nhập.
 
 ### Nhập ảnh từ máy — bảng trượt từ dưới lên
@@ -59,7 +59,7 @@ giữ nguyên ảnh người dùng tự nhập.
    đổi được.
 3. Chọn **góc máy** — **luôn hỏi**, mỗi mức kèm gợi ý nhận biết bằng mắt (trần nhà/bầu trời,
    thấy dưới cằm, mắt ngước lên…).
-   Riêng ảnh **người khác chụp + trên cao**: hỏi thêm **kiểu chụp** — đứng gần 1x / góc rộng 0.5x / từ xa rồi zoom.
+   Riêng ảnh **người khác chụp + trên cao**: hỏi thêm **kiểu chụp** — đứng gần (1x hoặc 0.5x) / từ xa rồi zoom.
 4. **Lưu ảnh mẫu** mới vào thư viện. Huỷ hoặc vuốt đóng thì xoá ảnh tạm.
 5. Sau đó hiện hộp thoại tiêu chí giống hệt ảnh cài sẵn.
 
