@@ -226,8 +226,8 @@ fun CuePill(
         // Đang đếm ngược: KHÔNG nhắc gì khác nữa, người ta đang tạo dáng.
         countdown != null -> Triple("●", "Giữ nguyên — $countdown", CueTone.OK)
         cue != null -> Triple(if (cueForModel) "🗣" else "→", cue, CueTone.WARN)
-        readyToPose -> Triple("✓", "Góc máy đã ổn — chỉnh dáng rồi bấm quay", CueTone.OK)
         readyToCapture -> Triple("✓", "Đủ điều kiện rồi — bấm quay", CueTone.OK)
+        readyToPose -> Triple("✓", "Góc máy đã ổn — chỉnh dáng rồi bấm quay", CueTone.OK)
         !hasCriteria -> Triple("○", "Đang đo…", CueTone.NEUTRAL)
         // Không còn câu nhắc nào mà cũng chưa đủ: đang ở vùng đệm giữa hai ngưỡng.
         else -> Triple("◐", "Gần đúng — giữ máy ổn định một chút", CueTone.NEUTRAL)

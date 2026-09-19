@@ -2551,3 +2551,19 @@ một bước không hội tụ sau khoảng 6 giây.
 Nếu không khoá thứ tự, làm đúng câu sau có thể làm tiêu chí câu trước mở lại, tạo vòng
 lặp. Với người dùng, một danh sách dấu tích còn dang dở cũng mang nghĩa “chưa được
 chụp”, nên chế độ bấm tay phải nói rõ rằng họ có thể chụp bất cứ lúc nào.
+
+## 93. Mất dấu người vẫn làm hết giờ bỏ qua bước
+
+**Sai:** giữ nguyên đồng hồ 6 giây khi `live == null`; khung đầu sau khi bắt lại người có thể bỏ qua ngay bước đang làm.
+
+**Đúng:** xoá mốc `currentStepSinceMs` khi mất dấu, rồi đếm lại khi có số đo live.
+
+**Vì sao:** lúc không thấy người, app không có dữ liệu để đánh giá việc chỉnh máy; thời gian đó không phải thời gian thử một bước.
+
+## 94. Khoá bước đã đạt không được che lệch lớn
+
+**Sai:** ép mọi bước đã xong thành `PASSING` đến hết phiên, dù người cầm máy đổi vị trí xa hơn ngưỡng mở khoá.
+
+**Đúng:** khi gate của một bước cũ báo `FAILING` và độ lệch vượt `band.unlock`, quay lại bước đó.
+
+**Vì sao:** rung tay nhỏ cần được bỏ qua, nhưng di chuyển máy lớn làm bố cục cũ mất hiệu lực và không thể tiếp tục tự chụp như đã đạt.

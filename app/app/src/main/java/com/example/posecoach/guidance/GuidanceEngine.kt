@@ -77,10 +77,13 @@ data class GuidanceResult(
     val readyToPose: Boolean = false,
 ) {
     val allPassed: Boolean
-        get() = statuses.isNotEmpty() && statuses.all {
-            !it.pending && (it.state == GateState.PASSING || it.skipped)
-        }
+        get() = statuses.isNotEmpty() && statuses.all(::resolvedForCapture)
 }
+
+/** Dáng là mục hướng dẫn cuối, không được chặn việc chụp. */
+internal fun resolvedForCapture(status: CriterionStatus): Boolean =
+    status.criterion == Criterion.POSE ||
+        (!status.pending && (status.state == GateState.PASSING || status.skipped))
 
 /**
  * ENGINE HƯỚNG DẪN — Bước 4.
@@ -187,6 +190,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         if (live == null) {
             validFrames = 0
             allGoodSinceMs = null
+            currentStepSinceMs = null
             val statuses = applicable.map { c ->
                 CriterionStatus(c, gates.getValue(c).state.takeIf { it == GateState.PASSING }
                     ?: GateState.UNMEASURED, null, null, bandOf(c))
@@ -285,6 +289,23 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 } else null,
                 targetZoom = if (c == Criterion.SCALE) targetZoomFor(t, live, zoomRatio) else null,
             )
+        }
+
+        // Khoá bước đã đạt để tránh rung tay kéo người dùng quay lại. Nếu vị trí
+        // thực sự đổi rất xa (vượt ngưỡng mở khoá của gate), phải kiểm bước đó lại.
+        val brokenStep = steps.take(currentStepIndex).indexOfFirst { step ->
+            step.any { criterion ->
+                val status = statuses.first { it.criterion == criterion }
+                criterion !in skipped && status.state == GateState.FAILING &&
+                    status.deviation != null && status.band != null &&
+                    status.deviation > status.band.unlock
+            }
+        }
+        if (brokenStep >= 0) {
+            currentStepIndex = brokenStep
+            currentStepSinceMs = null
+            allGoodSinceMs = null
+            presenter.reset()
         }
 
         // Chỉ một bước được hoạt động. Các bước sau hiện trạng thái "đang chờ" và
@@ -460,9 +481,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         // --- Cổng chụp ---
         val steady = angularSpeedDegPerSec <= GuidanceTiming.MAX_ANGULAR_SPEED_DEG_PER_SEC
 
-        val allResolved = statuses.isNotEmpty() && statuses.all {
-            !it.pending && (it.state == GateState.PASSING || it.skipped)
-        }
+        val allResolved = statuses.isNotEmpty() && statuses.all(::resolvedForCapture)
         val good = prepWarning == null && allResolved && steady
 
         if (good) {

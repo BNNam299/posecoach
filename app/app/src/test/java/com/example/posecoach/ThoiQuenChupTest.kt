@@ -70,6 +70,29 @@ class ThoiQuenChupTest {
         return TemplateProfile.from(f, framing, minVis)
     }
 
+    @Test
+    fun `mat dau khong duoc tinh vao sau giay bo qua buoc`() {
+        val tpl = nguoi(0.0)
+        val profile = profileCua(tpl)
+        val engine = GuidanceEngine(profile)
+        val live = Measurer.measure(nguoi(-40.0), profile.framing, minVis)
+
+        var result = engine.update(live, 0L, 0.0, allowSkip = true)
+        for (time in 100L..5_000L step 100L) {
+            result = engine.update(live, time, 0.0, allowSkip = true)
+        }
+        assertTrue("Cần có bước chưa đạt để kiểm thời gian", result.statuses.any {
+            !it.pending && !it.skipped && it.state != com.example.posecoach.guidance.GateState.PASSING
+        })
+        val skippedBefore = result.statuses.count { it.skipped }
+
+        engine.update(null, 15_000L, 0.0, allowSkip = true)
+        result = engine.update(live, 15_100L, 0.0, allowSkip = true)
+
+        assertEquals("Mất dấu không được làm hết giờ chờ", skippedBefore,
+            result.statuses.count { it.skipped })
+    }
+
     // =================================================================
     // Im lặng trong lúc người dùng đang tự đặt máy
     // =================================================================

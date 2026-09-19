@@ -8,6 +8,9 @@ import com.example.posecoach.pose.P2
 import com.example.posecoach.pose.P3
 import com.example.posecoach.pose.PoseFrame
 import com.example.posecoach.template.TemplateProfile
+import com.example.posecoach.template.Criterion
+import com.example.posecoach.guidance.GateState
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -63,6 +66,54 @@ class MatchPercentTest {
         var t = 0L
         repeat(20) { t += 100; r = engine.update(m, t, 0.0) }
         return r.matchPercent
+    }
+
+    @Test
+    fun `dang khong do duoc van cho chup khi bo cuc da dat`() {
+        val frame = nguoi()
+        val framing = FramingClass.detect(frame, minVis)!!
+        val profile = TemplateProfile.from(frame, framing, minVis)
+            .copy(active = setOf(Criterion.CENTER, Criterion.POSE))
+        val live = Measurer.measure(frame, framing, minVis).copy(poseAngles = emptyMap())
+        val engine = GuidanceEngine(profile)
+
+        var result = engine.update(live, 0L, 0.0)
+        for (time in 100L..1_500L step 100L) {
+            result = engine.update(live, time, 0.0)
+        }
+
+        assertTrue(result.statuses.any {
+            it.criterion == Criterion.CENTER && it.state == GateState.PASSING
+        })
+        assertTrue(result.statuses.any {
+            it.criterion == Criterion.POSE && it.state != GateState.PASSING
+        })
+        assertTrue("Dáng không được chặn việc chụp", result.readyToCapture)
+        assertFalse(result.statuses.any { it.skipped })
+    }
+
+    @Test
+    fun `lech tam rat xa sau khi da dat phai mo lai buoc bo cuc`() {
+        val frame = nguoi()
+        val framing = FramingClass.detect(frame, minVis)!!
+        val profile = TemplateProfile.from(frame, framing, minVis)
+            .copy(active = setOf(Criterion.CENTER))
+        val engine = GuidanceEngine(profile)
+        val matching = Measurer.measure(frame, framing, minVis)
+        val moved = Measurer.measure(nguoi(dx = 0.25), framing, minVis)
+
+        var result = engine.update(matching, 0L, 0.0)
+        for (time in 100L..1_500L step 100L) {
+            result = engine.update(matching, time, 0.0)
+        }
+        assertTrue(result.readyToCapture)
+
+        for (time in 1_600L..2_500L step 100L) {
+            result = engine.update(moved, time, 0.0)
+        }
+        assertFalse("Lệch xa không được giữ dấu đạt cũ", result.readyToCapture)
+        assertTrue(result.statuses.single().state == GateState.FAILING)
+        assertFalse(result.statuses.single().pending)
     }
 
     @Test
