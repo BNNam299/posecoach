@@ -354,6 +354,7 @@ fun CaptureScreen(
     LaunchedEffect(state.cameraReady) {
         if (state.cameraReady) {
             zoomRange = controller?.zoomRange() ?: 1f..1f
+            vm.onZoomMin(zoomRange.start)
         }
     }
 

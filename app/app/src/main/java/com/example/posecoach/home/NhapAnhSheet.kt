@@ -25,6 +25,7 @@ import com.example.posecoach.media.MediaLibrary.GocMayNhan
 import com.example.posecoach.media.MediaLibrary.TemplateKind
 import com.example.posecoach.media.UprightBitmap
 import com.example.posecoach.pose.FramingClass
+import com.example.posecoach.template.KieuChupTren
 import com.example.posecoach.template.TemplateVerdict
 import com.example.posecoach.ui.theme.Ds
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +60,7 @@ internal fun NhapAnhSheet(
     var kq by remember(file) { mutableStateOf<PhanTichAnhMau?>(null) }
     var kieu by remember(file) { mutableStateOf(TemplateKind.PHOTOGRAPHER) }
     var goc by remember(file) { mutableStateOf<GocMayNhan?>(null) }
+    var kieuTren by remember(file) { mutableStateOf<KieuChupTren?>(null) }
 
     LaunchedEffect(file) {
         anh = withContext(Dispatchers.IO) { UprightBitmap.decode(file, shortSide = 720)?.asImageBitmap() }
@@ -122,15 +124,20 @@ internal fun NhapAnhSheet(
 
                 else -> {
                     ChonNhan(kieu, { kieu = it }, goc, { goc = it })
+                    // Câu thứ ba CHỈ cho ảnh người khác chụp từ trên cao — xem `KieuChupTren`.
+                    val hoiKieuTren = kieu == TemplateKind.PHOTOGRAPHER && goc == GocMayNhan.TREN
+                    if (hoiKieuTren) ChonKieuTren(kieuTren) { kieuTren = it }
                     Spacer(Modifier.height(18.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         OutlinedButton(onClick = onHuy, modifier = Modifier.weight(1f)) { Text("Huỷ") }
                         Button(
                             onClick = {
-                                val chot = MediaLibrary.ganNhan(file, kieu, goc)
+                                val chot = MediaLibrary.ganNhan(
+                                    file, kieu, goc, if (hoiKieuTren) kieuTren else null,
+                                )
                                 onLuu(chot, k)
                             },
-                            enabled = goc != null,
+                            enabled = goc != null && (!hoiKieuTren || kieuTren != null),
                             modifier = Modifier.weight(1f),
                         ) { Text("Lưu ảnh mẫu") }
                     }
@@ -185,24 +192,7 @@ private fun ChonNhan(
             Triple(GocMayNhan.NGANG, "Ngang tầm mắt", "Nền là tường · mặt, cổ, vai cân đối · mắt nhìn thẳng"),
             Triple(GocMayNhan.DUOI, "Dưới thấp, hất lên", "Thấy trần nhà hoặc bầu trời · thấy dưới cằm · mắt liếc xuống nhìn máy"),
         ).forEach { (g, ten, goiY) ->
-            val chon = goc == g
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 3.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (chon) Ds.primary.copy(alpha = 0.10f) else Ds.surfaceMuted)
-                    .selectable(selected = chon, role = Role.RadioButton, onClick = { onGoc(g) })
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(selected = chon, onClick = null)
-                Spacer(Modifier.width(8.dp))
-                Column {
-                    Text(ten, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ds.text)
-                    Text(goiY, fontSize = 12.sp, color = Ds.textMuted)
-                }
-            }
+            DongChon(goc == g, ten, goiY) { onGoc(g) }
         }
         if (goc == null) {
             Text(
@@ -210,6 +200,52 @@ private fun ChonNhan(
                 fontSize = 12.sp, color = Ds.warning,
                 modifier = Modifier.padding(top = 4.dp),
             )
+        }
+    }
+}
+
+/**
+ * CÂU THỨ BA — kiểu chụp từ trên cao. Chỉ hiện với ảnh người khác chụp, góc trên cao.
+ * Xem `KieuChupTren`.
+ */
+@Composable
+private fun ChonKieuTren(chon: KieuChupTren?, onChon: (KieuChupTren) -> Unit) {
+    Spacer(Modifier.height(14.dp))
+    Text("Chụp từ trên cao kiểu nào?", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Ds.text)
+    Text(
+        "Cùng chúc máy xuống nhưng đứng gần, dùng góc rộng hay đứng xa rồi zoom cho ra " +
+            "ảnh khác hẳn. Nhìn độ to của đầu so với chân.",
+        fontSize = 12.sp, color = Ds.textMuted,
+    )
+    Spacer(Modifier.height(6.dp))
+    KieuChupTren.entries.forEach { k -> DongChon(chon == k, k.nhan, k.goiY) { onChon(k) } }
+    if (chon == null) {
+        Text(
+            "Chọn kiểu chụp để lưu",
+            fontSize = 12.sp, color = Ds.warning,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
+/** Một dòng chọn có nút tròn, tên và gợi ý nhận biết. */
+@Composable
+private fun DongChon(chon: Boolean, ten: String, goiY: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (chon) Ds.primary.copy(alpha = 0.10f) else Ds.surfaceMuted)
+            .selectable(selected = chon, role = Role.RadioButton, onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = chon, onClick = null)
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(ten, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Ds.text)
+            Text(goiY, fontSize = 12.sp, color = Ds.textMuted)
         }
     }
 }

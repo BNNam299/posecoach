@@ -97,7 +97,10 @@ fun HomeScreen(
 
     /** Hiện hộp thoại tiêu chí từ một kết quả phân tích đã có. */
     fun hienKetQua(file: File, kq: PhanTichAnhMau) {
-        profile = kq.hoSo(MediaLibrary.gocMayTheoNhan(file.nameWithoutExtension))
+        profile = kq.hoSo(
+            MediaLibrary.gocMayTheoNhan(file.nameWithoutExtension),
+            MediaLibrary.kieuChupTrenTheoNhan(file.nameWithoutExtension),
+        )
         poseGuide = kq.poseGuide
         difficulty = kq.difficulty
         // Luôn hiện hộp thoại khi NHẬN, kể cả không có cảnh báo: người dùng cần

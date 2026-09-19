@@ -45,11 +45,18 @@ Nhan bi cat khoi ten hien thi. Anh chup nguoi khac: nhan o DAU TEN
 (vd: tren-kinh-ram.jpg, duoi-NGOI-ghe.jpg). Anh guong: mirror-ngang-....jpg
 Khong gan nhan thi anh mau se KHONG co muc may cao/thap va ngua/chuc.
 
+KIEU CHUP TU TREN CAO — TU THU HAI, CHI SAU "tren", CHI ANH NGUOI KHAC CHUP
+------------------------------------------------------------------------
+    gan   ->  dung gan, zoom 1x (gio may qua dau)   (vd: tren-gan-abc.jpg)
+    rong  ->  goc rong 0.5x, sat mau (mat ca)       (vd: tren-rong-kinh-ram.jpg)
+    xa    ->  dung cho cao tu xa roi zoom           (vd: tren-xa-toc-hong.jpg)
+Khong gan thi huong dan zoom/khoang cach dua ca hai lua chon "di bo hoac zoom".
+
 SAU KHI THEM HOAC BO ANH — BAT BUOC LAM BUOC NAY
 ------------------------------------------------
 Mo file:   app/app/src/main/java/com/example/posecoach/media/MediaLibrary.kt
-Tim dong:  private const val SEED_MARKER = ".da-nap-anh-mau-v6"
-Doi so cuoi:  v6 -> v7  (lan sau nua: v7 -> v8)
+Tim dong:  private const val SEED_MARKER = ".da-nap-anh-mau-v7"
+Doi so cuoi:  v7 -> v8  (lan sau nua: v8 -> v9)
 
 Khong doi so thi app CHI dung bo anh cu, vi no nho la "da nap roi".
 Doi so xong, lan mo app ke tiep se:

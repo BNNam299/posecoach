@@ -85,6 +85,13 @@ class CaptureViewModel : ViewModel() {
         tiLeKhung = tiLe
     }
 
+    /** Mức zoom nhỏ nhất máy làm được — đọc một lần khi camera sẵn sàng. */
+    private var zoomMin: Float = 0.5f
+
+    fun onZoomMin(min: Float) {
+        zoomMin = min
+    }
+
     private var zoomRatio: Float = 1f
 
     /**
@@ -242,6 +249,7 @@ class CaptureViewModel : ViewModel() {
         val profile = TemplateProfile.from(
             frame, framing, minVisibility, face,
             gocMayNhan = com.example.posecoach.media.MediaLibrary.gocMayTheoNhan(name),
+            kieuChupTren = com.example.posecoach.media.MediaLibrary.kieuChupTrenTheoNhan(name),
         )
         templateProfile = profile
         // Engine phai tao SAU khi co ho so, vi no doc ho so de biet muc nao ap dung.
@@ -382,6 +390,7 @@ class CaptureViewModel : ViewModel() {
             minVis = minVisibility,
             allowSkip = _state.value.autoMode,
             vFovDeg = vFovDeg,
+            zoomMin = zoomMin,
         )
 
         _state.update {

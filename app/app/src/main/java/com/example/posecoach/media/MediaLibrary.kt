@@ -1,6 +1,7 @@
 package com.example.posecoach.media
 
 import android.content.Context
+import com.example.posecoach.template.KieuChupTren
 import java.io.File
 
 /**
@@ -44,7 +45,7 @@ object MediaLibrary {
      * ⚠️ Chỉ xoá ảnh **do app cài sẵn** — ảnh người dùng tự chọn từ máy KHÔNG bị
      * đụng tới. Danh sách ảnh cài sẵn ghi trong chính file đánh dấu.
      */
-    private const val SEED_MARKER = ".da-nap-anh-mau-v6"
+    private const val SEED_MARKER = ".da-nap-anh-mau-v7"
 
     private val IMAGE_EXT = setOf("jpg", "jpeg", "png", "webp", "jfif")
 
@@ -142,6 +143,18 @@ object MediaLibrary {
         }
     }
 
+    /**
+     * NHÃN KIỂU CHỤP TỪ TRÊN CAO — từ THỨ HAI sau tiền tố nhóm, chỉ có nghĩa khi từ
+     * thứ nhất là `tren`: `tren-gan-…` · `tren-rong-…` · `tren-xa-…`. Xem [KieuChupTren].
+     */
+    fun kieuChupTrenTheoNhan(nameWithoutExtension: String): KieuChupTren? {
+        if (GocMayNhan.cua(nameWithoutExtension) != GocMayNhan.TREN) return null
+        val n = nameWithoutExtension.lowercase()
+        val kind = TemplateKind.of(n)
+        val sau = if (kind.prefix.isNotEmpty()) n.removePrefix(kind.prefix) else n
+        return KieuChupTren.cuaTu(sau.substringAfter('-', "").substringBefore('-'))
+    }
+
     /** Ảnh người dùng tự nhập — tên do [ganNhan] hoặc hàm chép ảnh đặt. */
     fun laAnhNhap(file: File): Boolean = file.nameWithoutExtension.contains(TIEN_TO_NHAP)
 
@@ -169,13 +182,20 @@ object MediaLibrary {
      *
      * @return file sau khi đổi tên; đổi tên thất bại thì trả lại file cũ.
      */
-    fun ganNhan(file: File, kind: TemplateKind, goc: GocMayNhan?): File {
+    fun ganNhan(
+        file: File,
+        kind: TemplateKind,
+        goc: GocMayNhan?,
+        /** Chỉ ghi khi [goc] là [GocMayNhan.TREN]. */
+        kieuTren: KieuChupTren? = null,
+    ): File {
         val goc0 = file.nameWithoutExtension
         // Lột mọi tiền tố nhóm và nhãn góc cũ, chỉ giữ phần gốc "toi-chon-<giờ>".
         val loiTen = goc0.substring(goc0.indexOf(TIEN_TO_NHAP).coerceAtLeast(0))
         val tenMoi = buildString {
             append(kind.prefix)
             if (goc != null) append(goc.tu).append('-')
+            if (goc == GocMayNhan.TREN && kieuTren != null) append(kieuTren.tu).append('-')
             append(loiTen)
         } + "." + file.extension
         if (tenMoi == file.name) return file
@@ -192,9 +212,13 @@ object MediaLibrary {
 
     private fun boNhanGoc(tenSauTienTo: String): String {
         val tu = tenSauTienTo.substringBefore('-').lowercase()
-        return if (GocMayNhan.entries.any { it.tu == tu } && tenSauTienTo.contains('-')) {
-            tenSauTienTo.substringAfter('-')
-        } else tenSauTienTo
+        if (!(GocMayNhan.entries.any { it.tu == tu } && tenSauTienTo.contains('-'))) return tenSauTienTo
+        val sau = tenSauTienTo.substringAfter('-')
+        // Sau nhãn "tren" có thể còn nhãn kiểu chụp — bỏ nốt.
+        val tu2 = sau.substringBefore('-').lowercase()
+        return if (tu == GocMayNhan.TREN.tu && KieuChupTren.cuaTu(tu2) != null && sau.contains('-')) {
+            sau.substringAfter('-')
+        } else sau
     }
 
     fun templatesDir(context: Context): File =

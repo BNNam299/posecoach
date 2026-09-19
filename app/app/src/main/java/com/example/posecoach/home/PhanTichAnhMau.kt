@@ -28,10 +28,16 @@ internal class PhanTichAnhMau(
     val framing: FramingClass? get() = (verdict as? TemplateVerdict.Accepted)?.framing
 
     /** Hồ sơ tiêu chí; [gocMayNhan] là nhãn góc máy nếu có. `null` khi ảnh bị từ chối. */
-    fun hoSo(gocMayNhan: Double?): TemplateProfile? {
+    fun hoSo(
+        gocMayNhan: Double?,
+        kieuChupTren: com.example.posecoach.template.KieuChupTren? = null,
+    ): TemplateProfile? {
         val f = frame ?: return null
         val k = framing ?: return null
-        return TemplateProfile.from(f, k, TemplateGate.CORE_VIS, face, gocMayNhan = gocMayNhan)
+        return TemplateProfile.from(
+            f, k, TemplateGate.CORE_VIS, face,
+            gocMayNhan = gocMayNhan, kieuChupTren = kieuChupTren,
+        )
     }
 }
 

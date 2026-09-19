@@ -2620,3 +2620,17 @@ không đổi khung quay theo tỉ lệ thì ảnh ra 3:4 bị thiếu hai bên 
 **Vì sao:** PO test 19/09/2026 ảnh chụp từ trên cao mà đứng xa: app bảo "lùi thêm 1 bước"
 mãi. Chụp từ trên cao thì chân xa ống kính hơn nên co ngắn — y như đứng gần; từ dưới
 thấp thì ngược lại. Ảnh không tách được hai nguyên nhân, nên không đo (quy tắc số 4).
+
+
+## 100. Ảnh chụp từ trên cao có BA kiểu khác nhau về khoảng cách — hỏi, đừng đoán
+
+**Sai:** coi mọi ảnh nhãn `tren` là một kiểu (bản 16/09: "chụp sát, cấm zoom"; bản 19/09
+sáng: "đưa cả hai lựa chọn đi bộ hoặc zoom").
+**Đúng:** nhãn thứ hai sau `tren`, chỉ ảnh người khác chụp: `gan` (đứng gần 1x), `rong`
+(góc rộng 0.5x), `xa` (từ xa rồi zoom). Mục khung hình khi đó: gần/rộng thì bắt đúng mức
+zoom rồi đi bộ tới đúng cỡ; từ xa thì lùi đủ xa rồi zoom. Máy không có 0.5x thì dùng mức
+nhỏ nhất máy làm được. Không nhãn thì giữ cách cũ.
+**Vì sao:** PO 19/09/2026: ba kiểu cùng chúc máy nhưng khác hẳn nhau ở độ to của đầu so
+với chân. Tỉ lệ thân/chân trên ảnh lẫn với góc máy (mục 99) nên app không tự tách được.
+Hướng tự nhận ra còn chờ thử: so BỀ NGANG vai/hông/cổ chân (chúc máy không làm co bề
+ngang) — ảnh mẫu để ở `test-media/11-tren-cao-khoang-cach/`.

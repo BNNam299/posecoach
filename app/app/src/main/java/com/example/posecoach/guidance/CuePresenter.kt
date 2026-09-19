@@ -108,6 +108,14 @@ data class CriterionStatus(
     val skipped: Boolean = false,
     /** Mức zoom đề nghị sau khi chỗ đứng đã được khoá. */
     val targetZoom: Float? = null,
+    /** Ảnh mẫu chụp từ trên cao với mức zoom BẮT BUỘC (gần 1x, góc rộng 0.5x). Xem `KieuChupTren`. */
+    val zoomYeuCau: Float? = null,
+    /** Máy đang lệch mức zoom bắt buộc. */
+    val zoomSai: Boolean = false,
+    /** Ảnh mẫu chụp từ trên cao, đứng xa rồi zoom. */
+    val chupTuXa: Boolean = false,
+    /** Đã đứng đủ xa (theo ước lượng) cho kiểu chụp từ xa. */
+    val duXa: Boolean = false,
 ) {
     /**
      * Câu của mục này, TRONG khung hình này, là câu để ĐỌC TO CHO MẪU NGHE.
@@ -248,6 +256,10 @@ class CuePresenter {
  * nên hình không bị lật gương: trái/phải trong khung đúng bằng trái/phải của
  * người đang cầm máy.
  */
+/** "1x", "0.5x" — không kèm số lẻ thừa. */
+private fun nhanZoom(z: Float): String =
+    if (z == Math.round(z).toFloat()) "${Math.round(z)}x" else "%.1f".format(z).replace(',', '.') + "x"
+
 /** Ảnh mẫu chúc/ngửa gắt từ mức này trở lên thì máy buộc phải đổi độ cao, không chỉ đổi góc. */
 private const val GOC_GAT_DEG = 20.0
 
@@ -347,6 +359,18 @@ internal fun cueTextFor(status: CriterionStatus): String {
         // Với ảnh chân dung thì không có mục chỗ đứng, nên phải quay về câu đi bộ —
         // xem `GuidanceEngine`, nó truyền cờ này vào.
         Criterion.SCALE -> when {
+            // ẢNH MẪU CHỤP TỪ TRÊN CAO có nhãn kiểu chụp — xem `KieuChupTren`.
+            status.zoomYeuCau != null && status.zoomSai ->
+                "Chuyển zoom về ${nhanZoom(status.zoomYeuCau)} đến khi tích sáng"
+            status.zoomYeuCau != null -> if (signed > 0) {
+                "Lùi lại " + status.stepsPhrase() + ", giữ zoom " + nhanZoom(status.zoomYeuCau)
+            } else {
+                "Tiến sát vào " + status.stepsPhrase() + ", giữ zoom " + nhanZoom(status.zoomYeuCau)
+            }
+            status.chupTuXa && !status.duXa ->
+                "Lùi ra xa thêm " + status.stepsPhrase() + ", rồi zoom vào"
+            status.chupTuXa && status.targetZoom != null ->
+                "Đặt zoom khoảng ${"%.1f".format(status.targetZoom).replace(',', '.')}x đến khi tích sáng"
             // ẢNH MÉO CÓ CHỦ Ý — phải đi bộ, và phải giữ 1x. Zoom là đường tắt
             // dẫn tới một tấm ảnh khác hẳn: đúng cỡ mẫu trong khung nhưng phẳng.
 

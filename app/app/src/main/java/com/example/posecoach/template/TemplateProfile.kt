@@ -288,7 +288,11 @@ data class TemplateProfile(
     val skipped: Map<Criterion, String>,
     /** Nhóm khớp được chấm ở mục dáng. Chân dung cận không có nhóm chân. */
     val poseGroups: Set<PoseGroup>,
-
+    /**
+     * Kiểu chụp từ trên cao (gần 1x / góc rộng 0.5x / từ xa rồi zoom). Chỉ đổi câu
+     * nhắc khoảng cách/zoom. `null` = không có nhãn — giữ cách cũ. Xem [KieuChupTren].
+     */
+    val kieuChupTren: KieuChupTren? = null,
 ) {
     /** Tiêu chí áp dụng ở một chỗ cụ thể. Hướng dẫn realtime ít mục hơn chọn ảnh. */
     fun activeFor(stage: Stage): Set<Criterion> =
@@ -338,6 +342,8 @@ data class TemplateProfile(
              * vốn không suy được góc máy từ ảnh — có được mục 3 và mục 4.
              */
             gocMayNhan: Double? = null,
+            /** Nhãn kiểu chụp từ trên cao. Xem [KieuChupTren]. */
+            kieuChupTren: KieuChupTren? = null,
         ): TemplateProfile {
             val doAnh = Measurer.measure(frame, framing, minVisibility, face)
             // ⚠️ GÓC MÁY CỦA ẢNH MẪU CHỈ LẤY TỪ NHÃN (16/09/2026) — FOOTGUNS 91.
@@ -431,6 +437,7 @@ data class TemplateProfile(
                 active = active,
                 skipped = skipped,
                 poseGroups = framing.poseGroups,
+                kieuChupTren = kieuChupTren,
             )
         }
     }

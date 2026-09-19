@@ -8,6 +8,7 @@ import com.example.posecoach.pose.PoseFrame
 import com.example.posecoach.pose.YawSource
 import com.example.posecoach.measure.ShotScorer
 import com.example.posecoach.template.Criterion
+import com.example.posecoach.template.KieuChupTren
 import com.example.posecoach.template.Stage
 import com.example.posecoach.template.TemplateProfile
 
@@ -186,6 +187,8 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         allowSkip: Boolean = false,
         /** Góc mở dọc đang dùng, độ — để ước lượng khoảng cách theo ống kính thật. */
         vFovDeg: Double? = null,
+        /** Mức zoom nhỏ nhất máy làm được — máy không có ống góc rộng thì > 0,5. */
+        zoomMin: Float = 0.5f,
     ): GuidanceResult {
         // Chưa thấy người: xoá đồng hồ ổn định, nhưng KHÔNG reset các cổng —
         // mất dấu một lúc rồi bắt lại được thì không nên bắt người ta làm lại từ đầu.
@@ -221,6 +224,18 @@ class GuidanceEngine(private val profile: TemplateProfile) {
             abs(deviceRollDeg) >= DEVICE_ROLL_BLAME_DEG
         } else true
 
+        // ⚠️ KIỂU CHỤP TỪ TRÊN CAO (19/09/2026) — chỉ ảnh người khác chụp có nhãn này,
+        // và chỉ đổi mục khung hình (zoom/khoảng cách). Xem `KieuChupTren`.
+        val kieuTren = profile.kieuChupTren?.takeIf { mode == ShootMode.NGUOI_KHAC }
+        val zoomYeuCau = kieuTren?.zoom?.let { maxOf(it, zoomMin) }
+        val zoomSai = zoomYeuCau != null && abs(zoomRatio - zoomYeuCau) > ZOOM_LECH_TOI_DA
+        val duXa = kieuTren == KieuChupTren.XA_ZOOM && (
+            DistanceEstimator.estimate(
+                live.scale, live.anchorHeightMeters, zoomRatio,
+                DistanceEstimator.heSoOngKinh(vFovDeg, zoomRatio),
+            ) ?: 0.0
+            ) >= DistanceEstimator.minStandoffMeters(profile.framing)
+
         var statuses = applicable.map { c ->
             // ⚠️ Mục ngửa/chúc phải lấy ngưỡng THEO ĐÚNG đường đo đã dùng cho khung
             // này. Đo bằng mặt mà xét bằng ngưỡng của đo bằng chân thì nhiễu lớn
@@ -228,7 +243,9 @@ class GuidanceEngine(private val profile: TemplateProfile) {
             val band = bandOf(c, if (c == Criterion.PITCH) dev.pitchSource else null)
             val deviation = when (c) {
                 Criterion.YAW -> dev.yawDeg
-                Criterion.SCALE -> dev.scaleRatio
+                // Sai mức zoom bắt buộc thì cỡ người có khớp cũng là ảnh khác hẳn —
+                // coi như lệch quá ngưỡng mở khoá để mục này phải sửa.
+                Criterion.SCALE -> if (zoomSai && band != null) band.unlock + band.accept else dev.scaleRatio
                 Criterion.CENTER -> dev.centerX
                 Criterion.ELEVATION -> dev.elevationDeg
                 Criterion.ROLL -> dev.rollDeg
@@ -271,7 +288,7 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 deviation = trusted,
                 signedDelta = signedDelta(c, t, live),
                 band = band,
-                moveMeters = moveMetersFor(c, t, live, zoomRatio, vFovDeg),
+                moveMeters = moveMetersFor(c, t, live, zoomRatio, vFovDeg, zoomYeuCau),
                 // Ảnh chân dung không có mục chỗ đứng, nên mục khung hình phải nói
                 // đi bộ chứ không nói zoom — app không biết người dùng đang zoom
                 // hay đang đứng sai chỗ.
@@ -293,6 +310,10 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                     PoseDescriber.correction(templateFrame, liveFrame, minVis)
                 } else null,
                 targetZoom = if (c == Criterion.SCALE) targetZoomFor(t, live, zoomRatio) else null,
+                zoomYeuCau = if (c == Criterion.SCALE) zoomYeuCau else null,
+                zoomSai = c == Criterion.SCALE && zoomSai,
+                chupTuXa = c == Criterion.SCALE && kieuTren == KieuChupTren.XA_ZOOM,
+                duXa = duXa,
             )
         }
 
@@ -569,6 +590,8 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         live: PoseMeasurement,
         zoomRatio: Float,
         vFovDeg: Double?,
+        /** Kiểu chụp từ trên cao bắt buộc mức zoom này — đi bộ tới đúng cỡ ở mức đó. */
+        zoomYeuCau: Float? = null,
     ): Double? {
         if (c != Criterion.PERSPECTIVE && c != Criterion.SCALE) return null
         val heSo = DistanceEstimator.heSoOngKinh(vFovDeg, zoomRatio)
@@ -576,12 +599,19 @@ class GuidanceEngine(private val profile: TemplateProfile) {
             ?: return null
         // Khoảng cách đứng nếu chụp đúng khung của ảnh mẫu mà KHÔNG zoom.
         val atOneX = DistanceEstimator.estimate(t.scale, live.anchorHeightMeters, 1f, heSo)
-        val target = maxOf(DistanceEstimator.minStandoffMeters(profile.framing), atOneX ?: 0.0)
+        val target = if (zoomYeuCau != null) {
+            // Zoom cố định (đứng gần 1x, góc rộng 0.5x): đứng sát là đúng ý ảnh — không
+            // áp khoảng cách tối thiểu.
+            DistanceEstimator.estimate(t.scale, live.anchorHeightMeters, zoomYeuCau, heSo) ?: return null
+        } else maxOf(DistanceEstimator.minStandoffMeters(profile.framing), atOneX ?: 0.0)
         return kotlin.math.abs(target - now)
     }
 
     /** Mở cho test đọc ngưỡng, không phải để nơi khác gọi tuỳ tiện. */
     internal companion object {
+        /** Mức zoom lệch quá chừng này so với mức bắt buộc thì coi là sai zoom. */
+        const val ZOOM_LECH_TOI_DA = 0.08f
+
         /** Giữ im các mục về máy ngần này sau khi bắt đầu nói với mẫu. */
         const val MODEL_CUE_FREEZE_MS = 4_000L
 
