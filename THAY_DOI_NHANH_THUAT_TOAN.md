@@ -78,8 +78,10 @@ giữ nguyên ảnh người dùng tự nhập.
   lấy theo kiểu của ảnh mẫu.
 - **Sửa lỗi "xoay máy về dọc" bị kẹt** khi vào lại màn chụp dù đang cầm dọc.
 - **Sửa lỗi chụp liên tục ra ảnh nằm ngang** khi máy từng chúc gần phẳng (19/09/2026).
-- **Bỏ khung che theo tỉ lệ ảnh mẫu** (19/09/2026): xem trước, phép đo và ảnh ra đều là
-  toàn khung camera, không còn đổi theo từng ảnh mẫu.
+- **Bỏ khung che theo tỉ lệ ảnh mẫu** (19/09/2026): khung không còn đổi theo từng ảnh mẫu.
+- **Nút "Khung"** chọn tỉ lệ như app camera thường: 3:4 → 9:16 → 1:1 → Full (theo màn
+  hình). Khung xem trước, phép đo và ảnh ra cùng một tỉ lệ. Khoá khi đang quay/chụp.
+- **Nút "Lưới"** bật/tắt lưới 3×3 để canh bố cục bằng mắt. Lưới không tham gia chấm.
 - ⚠️ **Dòng số tạm** trên màn hình (`GÓC MÁY cảm biến … · suy từ ảnh …` và `m3 … m4 … cỡ …`)
   để đọc số từ video test. **Phải gỡ trước khi phát hành.**
 

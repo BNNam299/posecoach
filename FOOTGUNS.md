@@ -2597,3 +2597,15 @@ thì thứ người dùng thấy, thứ app đo và bức ảnh ra là ba khung 
 cao/thấp còn nhân `y` toàn khung với vFOV của khung đã cắt. Góc máy giờ lấy từ nhãn và
 cảm biến, không cần khung. Còn lại ba mục đọc vị trí/cỡ trong khung (xa/gần, lệch
 trái/phải, cao/thấp): lệch nhỏ khi ảnh mẫu 4:5 hay 9:16, lệch nhiều hơn với ảnh vuông 1:1.
+
+
+## 98. Tỉ lệ khung phải áp CÙNG LÚC cho bốn chỗ
+
+**Sai:** chỉ đổi hình dạng khung xem trước (hoặc chỉ cắt ảnh ra).
+**Đúng:** `TiLeKhung` người dùng chọn đi vào cả bốn: ô xem trước (FILL_CENTER),
+`croppedToAspect` cho phép đo live, `verticalFovDeg(tiLe)`, và `ShotSession` cắt cả ảnh
+lẫn khung xương trước khi chấm. Video quay 16:9 khi khung hẹp hơn 3:4 (9:16, Full),
+còn lại 4:3, để phần cắt luôn nằm trong vùng đã quay.
+**Vì sao:** mục 97 — lệch một chỗ là người dùng canh một khung, app chấm khung khác,
+ảnh ra khung thứ ba. Video FHD mặc định là 16:9, hẹp hơn khung xem trước 3:4: nếu
+không đổi khung quay theo tỉ lệ thì ảnh ra 3:4 bị thiếu hai bên so với lúc canh.

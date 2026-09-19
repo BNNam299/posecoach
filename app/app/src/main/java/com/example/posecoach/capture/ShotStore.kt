@@ -30,6 +30,29 @@ class ShotStore private constructor(val sessionDir: File) {
     fun file(id: Long): File = File(sessionDir, "$id.jpg")
 
     /** Lưu một khung. Trả `false` nếu ghi hỏng — khi đó đừng đưa nó vào bộ giữ. */
+    /**
+     * CẮT ẢNH VỀ TỈ LỆ KHUNG người dùng chọn (phần GIỮA), trước khi ghi. Xem `TiLeKhung`.
+     *
+     * `null` = giữ nguyên khung gốc.
+     */
+    fun cropToAspect(bitmap: Bitmap, targetAspect: Double?): Bitmap {
+        if (targetAspect == null || targetAspect <= 0.0) return bitmap
+        val w = bitmap.width
+        val h = bitmap.height
+        if (w <= 0 || h <= 0) return bitmap
+        val cur = w.toDouble() / h
+        if (kotlin.math.abs(cur - targetAspect) / cur < 0.01) return bitmap
+        return runCatching {
+            if (targetAspect < cur) {
+                val nw = (h * targetAspect).toInt().coerceIn(1, w)
+                Bitmap.createBitmap(bitmap, (w - nw) / 2, 0, nw, h)
+            } else {
+                val nh = (w / targetAspect).toInt().coerceIn(1, h)
+                Bitmap.createBitmap(bitmap, 0, (h - nh) / 2, w, nh)
+            }
+        }.getOrDefault(bitmap)
+    }
+
     fun save(id: Long, bitmap: Bitmap): Boolean = try {
         file(id).outputStream().use { out ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)

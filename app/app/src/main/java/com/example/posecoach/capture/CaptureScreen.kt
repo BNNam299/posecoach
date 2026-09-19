@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -265,10 +266,10 @@ fun CaptureScreen(
     // --- Camera ---
     val previewView = remember {
         PreviewView(context).apply {
-            // FIT_CENTER: hình vừa khít có viền đen, KHÔNG cắt xén. Bắt buộc, vì
-            // khung xương được vẽ đè lên theo đúng phép tính đó — dùng FILL_CENTER
-            // thì hình bị cắt còn khung xương thì không, hai thứ lệch nhau.
-            scaleType = PreviewView.ScaleType.FIT_CENTER
+            // FILL_CENTER trong một ô ĐÚNG TỈ LỆ KHUNG người dùng chọn: hình cắt phần
+            // giữa, đúng vùng mà phép đo (`croppedToAspect`) và ảnh ra cùng cắt —
+            // khung xương vẽ đè trong cùng ô nên khớp nhau. Xem `TiLeKhung`.
+            scaleType = PreviewView.ScaleType.FILL_CENTER
         }
     }
     var controller by remember { mutableStateOf<CaptureController?>(null) }
@@ -278,6 +279,9 @@ fun CaptureScreen(
     // Khung xương mờ: mặc định BẬT. Người cầm máy dùng nó để biết cần nói gì với
     // mẫu — mẫu đứng xa, không nhìn được màn hình nên nó là công cụ của người cầm.
     var showSkeleton by remember { mutableStateOf(true) }
+    // Tỉ lệ khung và lưới: lựa chọn của người dùng, giữ qua lần xoay màn hình.
+    var tiLeKhung by rememberSaveable { mutableStateOf(TiLeKhung.BA_BON) }
+    var hienLuoi by rememberSaveable { mutableStateOf(false) }
 
     DisposableEffect(hasPermission) {
         if (!hasPermission) return@DisposableEffect onDispose { }
@@ -359,10 +363,6 @@ fun CaptureScreen(
     //  - cam bien tra so ~50-100 lan/giay
     //  - muc zoom chi doi khi nguoi dung chum hai ngon
     // Lay mau ~30 lan/giay la du cho ca hai, va re hon nhieu so voi doc dung nhip.
-    // Goc mo ong kinh doi khi: camera san sang hoac nguoi dung zoom. Doc lai o ca hai moc.
-    LaunchedEffect(state.cameraReady, state.zoomRatio) {
-        vm.onVerticalFovChanged(controller?.verticalFovDeg())
-    }
 
     val tilt = remember { DeviceTilt(context) }
     DisposableEffect(tilt) {
@@ -507,8 +507,30 @@ fun CaptureScreen(
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (hasPermission) {
-            AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
-            if (state.liveDetectionActive && showSkeleton) SkeletonOverlay(state)
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val tiLe = tiLeKhung.tiLe(
+                    if (maxHeight.value > 0f) (maxWidth.value / maxHeight.value).toDouble() else 0.75
+                )
+                // Một tỉ lệ cho bốn chỗ: phép đo, khung quay video, góc mở dọc, ảnh ra.
+                // Góc mở đổi cả khi camera sẵn sàng và khi zoom.
+                LaunchedEffect(tiLe, controller, state.cameraReady, state.zoomRatio) {
+                    vm.onTiLeKhungChanged(tiLe)
+                    controller?.setTiLeKhung(tiLe)
+                    vm.onVerticalFovChanged(controller?.verticalFovDeg(tiLe))
+                }
+                Box(
+                    Modifier
+                        .align(Alignment.Center)
+                        .then(
+                            if (tiLeKhung == TiLeKhung.FULL) Modifier.fillMaxSize()
+                            else Modifier.fillMaxWidth().aspectRatio(tiLe.toFloat())
+                        ),
+                ) {
+                    AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+                    if (hienLuoi) LuoiBaPhan()
+                    if (state.liveDetectionActive && showSkeleton) SkeletonOverlay(state)
+                }
+            }
         }
 
         Column(
@@ -567,6 +589,15 @@ fun CaptureScreen(
                     ) {
                         Text("Đổi mẫu", color = Color.White, fontSize = 11.sp)
                     }
+                    Spacer(Modifier.height(8.dp))
+                    // Đổi tỉ lệ giữa lúc quay thì ảnh ra lẫn hai khung — khoá lại.
+                    val doiDuocKhung = !state.recording && state.burstTaken == 0
+                    NutNho(
+                        "Khung " + tiLeKhung.nhan,
+                        enabled = doiDuocKhung,
+                    ) { tiLeKhung = tiLeKhung.tiep() }
+                    Spacer(Modifier.height(6.dp))
+                    NutNho(if (hienLuoi) "Lưới ✓" else "Lưới", enabled = true) { hienLuoi = !hienLuoi }
                 }
             }
 
@@ -758,6 +789,7 @@ private suspend fun processRecording(
             val session = ShotSession(
                 store, profile, MIN_VIS,
                 faceAnalyzer = fa,
+                tiLeKhung = vm.tiLeKhung,
             )
 
             var pos = 0L
@@ -852,6 +884,7 @@ private suspend fun processBurst(
             val session = ShotSession(
                 store, profile, MIN_VIS,
                 faceAnalyzer = fa,
+                tiLeKhung = vm.tiLeKhung,
             )
 
             // Mốc thời gian giả lập theo đúng nhịp đã chụp, để bộ giữ khung áp
@@ -1202,6 +1235,41 @@ private fun ModeChip(label: String, selected: Boolean, onClick: () -> Unit) {
         fontSize = 12.sp,
         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
     )
+}
+
+/**
+ * LƯỚI 3×3 — chỉ giúp MẮT người cầm máy canh bố cục như app camera thường.
+ *
+ * Không tham gia chấm: app đo vị trí người bằng toạ độ liên tục, mịn hơn ô lưới.
+ */
+@Composable
+private fun LuoiBaPhan() {
+    Box(
+        Modifier.fillMaxSize().drawBehind {
+            val mau = Color(0x73FFFFFF)
+            val net = 1.dp.toPx()
+            for (i in 1..2) {
+                val x = size.width * i / 3f
+                val y = size.height * i / 3f
+                drawLine(mau, Offset(x, 0f), Offset(x, size.height), net)
+                drawLine(mau, Offset(0f, y), Offset(size.width, y), net)
+            }
+        }
+    )
+}
+
+/** Nút viên nhỏ trên nền mờ, cùng kiểu nút "Đổi mẫu". */
+@Composable
+private fun NutNho(nhan: String, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(Ds.rPill))
+            .background(Ds.overlayScrim)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    ) {
+        Text(nhan, color = if (enabled) Color.White else Color(0x80FFFFFF), fontSize = 11.sp)
+    }
 }
 
 @Composable

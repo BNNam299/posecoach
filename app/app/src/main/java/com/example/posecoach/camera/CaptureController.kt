@@ -144,6 +144,24 @@ class CaptureController(
         bindAll(p, lo, pv, ex)
     }
 
+    /**
+     * Video quay khung 16:9 hay 4:3. Khung chọn hẹp hơn 3:4 (9:16, Full) thì quay
+     * 16:9 để không mất độ phân giải; còn lại quay 4:3 để đủ phần hai bên.
+     */
+    private var video169 = false
+
+    /** Người dùng đổi tỉ lệ khung. Chỉ gắn lại camera khi phải đổi khung quay video. */
+    fun setTiLeKhung(tiLeDoc: Double) {
+        val next = tiLeDoc < TI_LE_4_3_DOC - 0.02
+        if (next == video169) return
+        video169 = next
+        val p = cameraProvider ?: return
+        val lo = boundLifecycleOwner ?: return
+        val pv = boundPreviewView ?: return
+        val ex = boundExecutor ?: return
+        bindAll(p, lo, pv, ex)
+    }
+
     private fun selector(): CameraSelector =
         if (shootMode.camTruoc) CameraSelector.DEFAULT_FRONT_CAMERA
         else CameraSelector.DEFAULT_BACK_CAMERA
@@ -193,13 +211,14 @@ class CaptureController(
      *
      * ⚠️ **Zoom** thu hẹp góc nhìn thật: `tan(vFOV'/2) = tan(vFOV/2) / zoom`.
      *
-     * Không cắt theo tỉ lệ ảnh mẫu nữa (19/09/2026): tầng đo đọc `y` trên TOÀN khung
-     * camera, nên vFOV cũng phải là của toàn khung (FOOTGUNS 97).
+     * ⚠️ **Tỉ lệ khung** người dùng chọn (`TiLeKhung`): tầng đo đọc `y` trong khung
+     * ĐÃ CẮT, nên vFOV phải là của khung đã cắt. Khung rộng hơn cảm biến (1:1) thì
+     * cắt trên dưới — vFOV hẹp lại; khung hẹp hơn (9:16) thì cắt hai bên — giữ nguyên.
      *
      * Trả `null` khi chưa gắn camera hoặc máy không khai báo thông số; lúc đó
      * tầng đo lùi về `Measurer.VFOV_ANH_MAU`.
      */
-    fun verticalFovDeg(): Double? = runCatching {
+    fun verticalFovDeg(tiLeKhung: Double?): Double? = runCatching {
         val info = androidx.camera.camera2.interop.Camera2CameraInfo.from(
             camera?.cameraInfo ?: return null
         )
@@ -215,9 +234,14 @@ class CaptureController(
         // Cảm biến khai báo theo chiều NGANG của máy; app chụp dọc nên cạnh
         // "dọc trên màn hình" là cạnh DÀI của cảm biến.
         val canhDoc = maxOf(size.width, size.height).toDouble()
+        val canhNgang = minOf(size.width, size.height).toDouble()
 
         var nuaTan = (canhDoc / 2.0) / f
         nuaTan /= zoomRatio.toDouble().coerceAtLeast(0.01)
+        val tiLeCamBien = canhNgang / canhDoc
+        if (tiLeKhung != null && tiLeKhung > tiLeCamBien) {
+            nuaTan *= tiLeCamBien / tiLeKhung
+        }
         Math.toDegrees(2.0 * kotlin.math.atan(nuaTan))
     }.getOrNull()
 
@@ -378,6 +402,10 @@ class CaptureController(
         }
 
         val recorder = Recorder.Builder()
+            .setAspectRatio(
+                if (video169) androidx.camera.core.AspectRatio.RATIO_16_9
+                else androidx.camera.core.AspectRatio.RATIO_4_3
+            )
             // Ưu tiên Full HD. Không được thì tụt xuống mức thấp hơn gần nhất chứ
             // không bỏ cuộc — quay được ở chất lượng thấp vẫn hơn không quay được.
             .setQualitySelector(
@@ -604,5 +632,7 @@ class CaptureController(
 
     private companion object {
         const val TAG = "CaptureController"
+        /** Tỉ lệ ngang/dọc của cảm biến 4:3 khi cầm dọc. */
+        const val TI_LE_4_3_DOC = 3.0 / 4.0
     }
 }

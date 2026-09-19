@@ -48,7 +48,16 @@ class ShotSession(
      * loại khỏi cách tính, không trừ điểm.
      */
     private val faceAnalyzer: FaceAnalyzer? = null,
+    /**
+     * Tỉ lệ khung người dùng chọn (ngang/dọc khi cầm dọc). Ảnh ra VÀ khung xương đem
+     * chấm đều cắt về tỉ lệ này — cùng vùng với khung xem trước. Xem `TiLeKhung`.
+     */
+    private val tiLeKhung: Double? = null,
 ) {
+    /** Tỉ lệ đích theo đúng chiều của ảnh (cầm ngang thì lật). */
+    private fun tiLeCho(anh: Bitmap): Double? =
+        tiLeKhung?.let { TiLeKhung.theoHuong(it, anh.width, anh.height) }
+
     /** Dữ liệu giữ trong bộ nhớ cho từng khung đang được giữ. Tối đa bằng sức chứa bộ giữ. */
     private class Pending(
         val measurement: PoseMeasurement,
@@ -92,9 +101,14 @@ class ShotSession(
             c, profile.framing, profile.measurement.scale,
         )?.accept
 
-    fun offer(bitmap: Bitmap, pose: PoseFrame, timeMs: Long): Boolean {
+    fun offer(anhGoc: Bitmap, poseGoc: PoseFrame, timeMs: Long): Boolean {
         if (finished) return false
-        if (pose.isEmpty) return false
+        if (poseGoc.isEmpty) return false
+        // Cắt ảnh và khung xương về CÙNG một vùng — vùng người dùng thấy lúc chụp.
+        val tl = tiLeCho(anhGoc)
+        val bitmap = store.cropToAspect(anhGoc, tl)
+        val pose = if (tl == null) poseGoc
+        else poseGoc.croppedToAspect(tl, anhGoc.width.toDouble() / anhGoc.height)
 
         // ⚠️ NHẬN DIỆN MẶT KHÔNG chạy ở đây nữa, trừ khi ảnh mẫu BẮT BUỘC cần.
         //
@@ -199,7 +213,7 @@ class ShotSession(
         val highResSharp = mutableMapOf<Long, Double>()
         if (highRes != null) {
             for (c in candidates) {
-                val big = highRes(c.timeMs) ?: continue
+                val big = highRes(c.timeMs)?.let { store.cropToAspect(it, tiLeCho(it)) } ?: continue
                 store.save(c.id, big)
                 highResSharp[c.id] = Sharpness.of(big)
                 if (faceAnalyzer != null) {

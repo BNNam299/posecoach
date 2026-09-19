@@ -74,6 +74,17 @@ class CaptureViewModel : ViewModel() {
     private var devicePitchDeg: Double? = null
     private var devicePortrait: Boolean = true
 
+    /**
+     * Tỉ lệ khung người dùng chọn, ngang/dọc khi cầm dọc. `null` = chưa biết, đo
+     * trên toàn khung. Giữ qua các lần vào màn chụp — đó là lựa chọn của người dùng.
+     */
+    var tiLeKhung: Double? = null
+        private set
+
+    fun onTiLeKhungChanged(tiLe: Double) {
+        tiLeKhung = tiLe
+    }
+
     private var zoomRatio: Float = 1f
 
     /**
@@ -274,7 +285,18 @@ class CaptureViewModel : ViewModel() {
         //
         // Soi gương thì KHÔNG lật — ở đó camera sau chụp thẳng, khung thô đã chính
         // là bức ảnh sẽ lưu.
-        val frame = if (mode.camTruoc) rawFrame.mirrored() else rawFrame
+        val khungLat = if (mode.camTruoc) rawFrame.mirrored() else rawFrame
+        // Cắt về tỉ lệ khung người dùng chọn — đúng vùng họ đang thấy trên màn hình
+        // và đúng vùng ảnh ra. Xem `TiLeKhung`.
+        val rong = stats.inputWidth
+        val cao = stats.inputHeight
+        val tl = tiLeKhung?.takeIf { rong > 0 && cao > 0 }?.let { TiLeKhung.theoHuong(it, rong, cao) }
+        val frame = if (tl == null) khungLat else khungLat.croppedToAspect(tl, rong.toDouble() / cao)
+        val (rongCat, caoCat) = when {
+            tl == null -> rong to cao
+            tl < rong.toDouble() / cao -> (cao * tl).toInt() to cao
+            else -> rong to (rong / tl).toInt()
+        }
         val detected = !frame.isEmpty && frame.visibility.any { it >= minVisibility }
         val profile = templateProfile
         val eng = engine
@@ -371,8 +393,8 @@ class CaptureViewModel : ViewModel() {
                 // luôn là lớp khung hình của ảnh mẫu.
                 liveFraming = if (detected) FramingClass.detect(frame, minVisibility) else null,
                 inferenceMs = stats.inferenceTimeMs,
-                frameWidth = stats.inputWidth,
-                frameHeight = stats.inputHeight,
+                frameWidth = rongCat,
+                frameHeight = caoCat,
                 criteria = result?.statuses ?: emptyList(),
                 cue = result?.cue,
                 cueForModel = result?.cueForModel == true,
