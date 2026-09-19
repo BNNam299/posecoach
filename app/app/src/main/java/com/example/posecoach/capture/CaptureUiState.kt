@@ -13,9 +13,6 @@ import java.io.File
  * file video. Mọi thứ phía sau (đo, chấm điểm, chọn 5 ảnh) dùng chung code.
  */
 data class CaptureUiState(
-    /** Tỉ lệ ngang/dọc của ảnh mẫu. `null` = chưa phân tích xong. */
-    val templateAspect: Double? = null,
-
     /** Độ giống ảnh mẫu ngay lúc này, 0..100. `null` = chưa đo được. */
     val matchPercent: Int? = null,
 

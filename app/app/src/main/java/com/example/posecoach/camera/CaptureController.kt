@@ -191,16 +191,15 @@ class CaptureController(
      *
      * Đọc từ phần cứng qua Camera2: `vFOV = 2·atan(cao_cảm_biến / (2·tiêu_cự))`.
      *
-     * ⚠️ Hai phép hiệu chỉnh bắt buộc, thiếu cái nào cũng sai có hệ thống:
+     * ⚠️ **Zoom** thu hẹp góc nhìn thật: `tan(vFOV'/2) = tan(vFOV/2) / zoom`.
      *
-     * 1. **Zoom** thu hẹp góc nhìn thật: `tan(vFOV'/2) = tan(vFOV/2) / zoom`.
-     * 2. **Cắt về tỉ lệ ảnh mẫu** cũng thu hẹp — vì `y` mà tầng đo dùng là toạ độ
-     *    trong khung ĐÃ CẮT, nên vFOV phải là vFOV của khung đã cắt.
+     * Không cắt theo tỉ lệ ảnh mẫu nữa (19/09/2026): tầng đo đọc `y` trên TOÀN khung
+     * camera, nên vFOV cũng phải là của toàn khung (FOOTGUNS 97).
      *
      * Trả `null` khi chưa gắn camera hoặc máy không khai báo thông số; lúc đó
      * tầng đo lùi về `Measurer.VFOV_ANH_MAU`.
      */
-    fun verticalFovDeg(targetAspect: Double?): Double? = runCatching {
+    fun verticalFovDeg(): Double? = runCatching {
         val info = androidx.camera.camera2.interop.Camera2CameraInfo.from(
             camera?.cameraInfo ?: return null
         )
@@ -216,17 +215,9 @@ class CaptureController(
         // Cảm biến khai báo theo chiều NGANG của máy; app chụp dọc nên cạnh
         // "dọc trên màn hình" là cạnh DÀI của cảm biến.
         val canhDoc = maxOf(size.width, size.height).toDouble()
-        val canhNgang = minOf(size.width, size.height).toDouble()
 
         var nuaTan = (canhDoc / 2.0) / f
-        // 1 — zoom
         nuaTan /= zoomRatio.toDouble().coerceAtLeast(0.01)
-        // 2 — cắt về tỉ lệ ảnh mẫu: khung hẹp hơn cảm biến thì cắt hai bên
-        //     (chiều dọc giữ nguyên); khung cao hơn thì cắt trên dưới.
-        val tiLeCamBien = canhNgang / canhDoc
-        if (targetAspect != null && targetAspect > tiLeCamBien) {
-            nuaTan *= tiLeCamBien / targetAspect
-        }
         Math.toDegrees(2.0 * kotlin.math.atan(nuaTan))
     }.getOrNull()
 

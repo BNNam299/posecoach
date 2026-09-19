@@ -48,14 +48,6 @@ class ShotSession(
      * loại khỏi cách tính, không trừ điểm.
      */
     private val faceAnalyzer: FaceAnalyzer? = null,
-    /**
-     * Tỉ lệ ngang/dọc của ẢNH MẪU — ảnh lưu ra bị cắt về đúng tỉ lệ này.
-     *
-     * ⚠️ Phải khớp với lớp che trên khung xem trước và với phép cắt trước khi đo.
-     * Ba chỗ lệch nhau thì người dùng canh một khung, app chấm khung khác, và nhận
-     * về bức ảnh khung thứ ba.
-     */
-    private val templateAspect: Double? = null,
 ) {
     /** Dữ liệu giữ trong bộ nhớ cho từng khung đang được giữ. Tối đa bằng sức chứa bộ giữ. */
     private class Pending(
@@ -149,7 +141,7 @@ class ShotSession(
         val result = buffer.offer(candidate)
         if (result !is OfferResult.Accepted) return false
 
-        if (!store.save(id, store.cropToAspect(bitmap, templateAspect))) {
+        if (!store.save(id, bitmap)) {
             // Ghi hỏng thì phải rút mục vừa thêm ra, nếu không màn kết quả sẽ có
             // một ô trỏ tới file không tồn tại.
             buffer.remove(id)
@@ -208,11 +200,10 @@ class ShotSession(
         if (highRes != null) {
             for (c in candidates) {
                 val big = highRes(c.timeMs) ?: continue
-                val bigCropped = store.cropToAspect(big, templateAspect)
-                store.save(c.id, bigCropped)
-                highResSharp[c.id] = Sharpness.of(bigCropped)
+                store.save(c.id, big)
+                highResSharp[c.id] = Sharpness.of(big)
                 if (faceAnalyzer != null) {
-                    highResEyes[c.id] = faceAnalyzer.analyze(bigCropped)?.eyesOpen
+                    highResEyes[c.id] = faceAnalyzer.analyze(big)?.eyesOpen
                 }
             }
         }

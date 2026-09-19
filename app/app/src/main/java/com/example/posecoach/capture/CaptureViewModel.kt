@@ -40,15 +40,6 @@ class CaptureViewModel : ViewModel() {
     var templateProfile: TemplateProfile? = null
         private set
 
-    /**
-     * TỈ LỆ NGANG/DỌC CỦA ẢNH MẪU. `null` = chưa phân tích xong.
-     *
-     * Mọi khung hình camera phải được cắt về đúng tỉ lệ này TRƯỚC KHI ĐO — toạ độ
-     * khớp là tỉ lệ so với khung chứa nó, nên hai khung khác tỉ lệ thì không so
-     * được. Xem `PoseFrame.croppedToAspect`.
-     */
-    var templateAspect: Double? = null
-        private set
 
     /**
      * ENGINE HUONG DAN. Tao MOT LAN khi phan tich xong anh mau, vi no giu trang
@@ -134,7 +125,6 @@ class CaptureViewModel : ViewModel() {
      */
     fun startFresh() {
         templateProfile = null
-        templateAspect = null
         engine = null
         templateFrameForPose = null
         angularSpeedDegPerSec = 0.0
@@ -250,14 +240,12 @@ class CaptureViewModel : ViewModel() {
         // Anh mau doc hay ngang - quyet dinh viec nhac nguoi dung xoay may.
         // Lay tu chinh anh thu nho, khong can truyen them gi tu ben ngoai.
         val portrait = thumb?.let { it.height >= it.width }
-        templateAspect = thumb?.let { if (it.height > 0) it.width.toDouble() / it.height else null }
 
         _state.update {
             it.copy(
                 templateName = name, templateThumb = thumb, templateFraming = framing,
                 criteriaSummary = profile.describe(),
                 templatePortrait = portrait,
-                templateAspect = templateAspect,
                 analyzingTemplate = false, templateError = null,
             )
         }

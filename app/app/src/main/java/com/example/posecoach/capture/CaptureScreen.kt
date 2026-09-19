@@ -359,10 +359,9 @@ fun CaptureScreen(
     //  - cam bien tra so ~50-100 lan/giay
     //  - muc zoom chi doi khi nguoi dung chum hai ngon
     // Lay mau ~30 lan/giay la du cho ca hai, va re hon nhieu so voi doc dung nhip.
-    // Goc mo ong kinh doi khi: camera san sang, nguoi dung zoom, hoac biet ti le
-    // anh mau (vi khung bi cat ve ti le do). Doc lai o ca ba moc.
-    LaunchedEffect(state.cameraReady, state.zoomRatio, state.templateAspect) {
-        vm.onVerticalFovChanged(controller?.verticalFovDeg(state.templateAspect))
+    // Goc mo ong kinh doi khi: camera san sang hoac nguoi dung zoom. Doc lai o ca hai moc.
+    LaunchedEffect(state.cameraReady, state.zoomRatio) {
+        vm.onVerticalFovChanged(controller?.verticalFovDeg())
     }
 
     val tilt = remember { DeviceTilt(context) }
@@ -509,9 +508,6 @@ fun CaptureScreen(
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (hasPermission) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
-            // Lop che cho nguoi dung thay DUNG khung se chup - phai ve TRUOC khung
-            // xuong de khung xuong khong bi mo di.
-            FramingMask(state)
             if (state.liveDetectionActive && showSkeleton) SkeletonOverlay(state)
         }
 
@@ -761,7 +757,7 @@ private suspend fun processRecording(
             faceAnalyzer = fa
             val session = ShotSession(
                 store, profile, MIN_VIS,
-                faceAnalyzer = fa, templateAspect = vm.templateAspect,
+                faceAnalyzer = fa,
             )
 
             var pos = 0L
@@ -855,7 +851,7 @@ private suspend fun processBurst(
             faceAnalyzer = fa
             val session = ShotSession(
                 store, profile, MIN_VIS,
-                faceAnalyzer = fa, templateAspect = vm.templateAspect,
+                faceAnalyzer = fa,
             )
 
             // Mốc thời gian giả lập theo đúng nhịp đã chụp, để bộ giữ khung áp
@@ -1206,61 +1202,6 @@ private fun ModeChip(label: String, selected: Boolean, onClick: () -> Unit) {
         fontSize = 12.sp,
         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
     )
-}
-
-/**
- * LỚP CHE — cho người dùng thấy ĐÚNG khung hình sẽ được chụp.
- *
- * ## Vì sao cần
- *
- * Cảm biến camera cho khung 4:3, còn ảnh mẫu có tỉ lệ riêng của nó. App đã cắt
- * khung về đúng tỉ lệ ảnh mẫu trước khi đo (`PoseFrame.croppedToAspect`) — nhưng
- * nếu người dùng vẫn nhìn thấy trọn khung 4:3 thì họ đang canh theo một khung khác
- * với khung app đang chấm. Kết quả: **chỉnh mãi mà chủ thể vẫn lệch một chút**,
- * đúng như PO báo.
- *
- * Dùng lại đúng phép tính FIT_CENTER của [SkeletonOverlay] để lớp che, khung xem
- * trước và khung xương nằm khít lên nhau.
- */
-@Composable
-private fun FramingMask(state: CaptureUiState) {
-    val ta = state.templateAspect ?: return
-    val fw = state.frameWidth
-    val fh = state.frameHeight
-    if (fw <= 0 || fh <= 0 || ta <= 0.0) return
-
-    Box(
-        Modifier.fillMaxSize().drawBehind {
-            // Ô chữ nhật mà hình camera thực sự chiếm (FIT_CENTER để lại viền đen).
-            val scale = min(size.width / fw, size.height / fh)
-            val dw = fw * scale
-            val dh = fh * scale
-            val left = (size.width - dw) / 2f
-            val top = (size.height - dh) / 2f
-
-            // Trong ô đó, phần GIỮA có đúng tỉ lệ ảnh mẫu.
-            val frameAspect = fw.toFloat() / fh
-            var cw = dw
-            var ch = dh
-            if (ta < frameAspect) cw = dh * ta.toFloat() else ch = dw / ta.toFloat()
-            val cl = left + (dw - cw) / 2f
-            val ct = top + (dh - ch) / 2f
-
-            // Làm tối phần NGOÀI khung sẽ chụp. Không tô đen hẳn — người dùng vẫn
-            // cần thấy mình sắp bước ra khỏi khung.
-            val veil = Color(0xB3000000)
-            drawRect(veil, Offset(left, top), Size(dw, ct - top))
-            drawRect(veil, Offset(left, ct + ch), Size(dw, top + dh - (ct + ch)))
-            drawRect(veil, Offset(left, ct), Size(cl - left, ch))
-            drawRect(veil, Offset(cl + cw, ct), Size(left + dw - (cl + cw), ch))
-
-            // Viền mảnh đánh dấu mép khung thật.
-            drawRect(
-                Color(0x66FFFFFF), Offset(cl, ct), Size(cw, ch),
-                style = Stroke(width = 1.dp.toPx()),
-            )
-        }
-    ) {}
 }
 
 @Composable

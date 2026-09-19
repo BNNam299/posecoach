@@ -2584,3 +2584,16 @@ dọc lại thì chỉ luồng nhận diện và quay video được sửa, 8 t�
 **Đúng:** `tamTay` thì đổi thành "duỗi tay ra xa".
 **Vì sao:** khoảng cách selfie là độ duỗi tay; nhánh câu thường đã xử lý, nhánh "không
 đo được" thì sót.
+
+
+## 97. Màn chụp che tối và cắt ảnh theo tỉ lệ ảnh mẫu, trong khi phép đo dùng toàn khung
+
+**Sai:** `FramingMask` che tối phần ngoài tỉ lệ ảnh mẫu, `ShotStore.cropToAspect` cắt ảnh
+ra theo tỉ lệ đó, `verticalFovDeg(templateAspect)` thu vFOV theo tỉ lệ đó — nhưng khung
+xương live **chưa từng** được cắt (`PoseFrame.croppedToAspect` không có ai gọi).
+**Đúng:** bỏ cả ba: xem trước, đo và ảnh ra đều là TOÀN khung camera.
+**Vì sao:** PO 19/09/2026: khung đổi theo từng ảnh mẫu "rất thiếu tự nhiên". Kiểm lại
+thì thứ người dùng thấy, thứ app đo và bức ảnh ra là ba khung khác nhau; riêng mục máy
+cao/thấp còn nhân `y` toàn khung với vFOV của khung đã cắt. Góc máy giờ lấy từ nhãn và
+cảm biến, không cần khung. Còn lại ba mục đọc vị trí/cỡ trong khung (xa/gần, lệch
+trái/phải, cao/thấp): lệch nhỏ khi ảnh mẫu 4:5 hay 9:16, lệch nhiều hơn với ảnh vuông 1:1.

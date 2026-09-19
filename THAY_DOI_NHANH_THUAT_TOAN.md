@@ -78,6 +78,8 @@ giữ nguyên ảnh người dùng tự nhập.
   lấy theo kiểu của ảnh mẫu.
 - **Sửa lỗi "xoay máy về dọc" bị kẹt** khi vào lại màn chụp dù đang cầm dọc.
 - **Sửa lỗi chụp liên tục ra ảnh nằm ngang** khi máy từng chúc gần phẳng (19/09/2026).
+- **Bỏ khung che theo tỉ lệ ảnh mẫu** (19/09/2026): xem trước, phép đo và ảnh ra đều là
+  toàn khung camera, không còn đổi theo từng ảnh mẫu.
 - ⚠️ **Dòng số tạm** trên màn hình (`GÓC MÁY cảm biến … · suy từ ảnh …` và `m3 … m4 … cỡ …`)
   để đọc số từ video test. **Phải gỡ trước khi phát hành.**
 
