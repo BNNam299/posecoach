@@ -2634,3 +2634,8 @@ nhỏ nhất máy làm được. Không nhãn thì giữ cách cũ.
 với chân. Tỉ lệ thân/chân trên ảnh lẫn với góc máy (mục 99) nên app không tự tách được.
 Hướng tự nhận ra còn chờ thử: so BỀ NGANG vai/hông/cổ chân (chúc máy không làm co bề
 ngang) — ảnh mẫu để ở `test-media/11-tren-cao-khoang-cach/`.
+
+**Đã thử 19/09/2026** (`tools/goc-may/be_ngang.py`, 17 ảnh ở `test-media/11-…`): tỉ lệ
+bề ngang tai/cổ chân (chuẩn hoá theo bề ngang thật) — gần 1x +0,48…+0,56, góc rộng
++0,39…+0,81, từ xa −0,19…+0,34 (trừ một ảnh +0,81). **Gần 1x và góc rộng chồng lên nhau
+hoàn toàn**; gần/xa có tách nhưng mới 3–5 ảnh mỗi nhóm có đủ cổ chân. Chưa đủ để bỏ câu hỏi.
