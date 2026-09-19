@@ -280,6 +280,10 @@ internal fun cueTextFor(status: CriterionStatus): String {
                 "Chưa thấy rõ tay chân của mẫu để so dáng"
             // Các mục hậu kỳ không bao giờ vào tới đây.
             else -> "Chưa đo được mục này — lùi ra cho thấy đủ người"
+        }.let {
+            // Tự chụp cầm tay thì không lùi được — khoảng cách là độ duỗi TAY
+            // (video test 19/09/2026: selfie bị bảo "lùi ra").
+            if (status.tamTay) it.replace("lùi ra", "duỗi tay ra xa") else it
         }
     }
 

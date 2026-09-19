@@ -2567,3 +2567,20 @@ chụp”, nên chế độ bấm tay phải nói rõ rằng họ có thể ch�
 **Đúng:** khi gate của một bước cũ báo `FAILING` và độ lệch vượt `band.unlock`, quay lại bước đó.
 
 **Vì sao:** rung tay nhỏ cần được bỏ qua, nhưng di chuyển máy lớn làm bố cục cũ mất hiệu lực và không thể tiếp tục tự chụp như đã đạt.
+
+
+## 95. Chụp liên tục ra ảnh nằm ngang dù xem trước đứng
+
+**Sai:** trình nghe hướng máy chỉ cập nhật `imageAnalysis` và `videoCapture`.
+**Đúng:** cập nhật cả `imageCapture?.targetRotation`.
+**Vì sao:** video 19/09/2026: máy chúc gần phẳng (−73°) nên cảm biến lỡ báo "ngang";
+người dùng bấm "Chụp liên tục" đúng lúc đó → bộ chụp ảnh dựng theo hướng ngang. Hướng về
+dọc lại thì chỉ luồng nhận diện và quay video được sửa, 8 tấm chụp ra đều nằm ngang,
+điểm giống mẫu 8/100.
+
+## 96. Tự cầm máy selfie mà câu "không đo được" bảo "lùi ra"
+
+**Sai:** nhánh `unmeasuredTooLong` trong `cueTextFor` trả câu cố định "lùi ra…".
+**Đúng:** `tamTay` thì đổi thành "duỗi tay ra xa".
+**Vì sao:** khoảng cách selfie là độ duỗi tay; nhánh câu thường đã xử lý, nhánh "không
+đo được" thì sót.

@@ -77,6 +77,7 @@ giữ nguyên ảnh người dùng tự nhập.
 - **Nút:** thư viện ảnh bên trái nút chụp, xoay camera bên phải. Bỏ hàng chọn chế độ — chế độ
   lấy theo kiểu của ảnh mẫu.
 - **Sửa lỗi "xoay máy về dọc" bị kẹt** khi vào lại màn chụp dù đang cầm dọc.
+- **Sửa lỗi chụp liên tục ra ảnh nằm ngang** khi máy từng chúc gần phẳng (19/09/2026).
 - ⚠️ **Dòng số tạm** trên màn hình (`GÓC MÁY cảm biến … · suy từ ảnh …` và `m3 … m4 … cỡ …`)
   để đọc số từ video test. **Phải gỡ trước khi phát hành.**
 
@@ -89,7 +90,7 @@ giữ nguyên ảnh người dùng tự nhập.
 | **Xa/gần** | Đã lùi đủ xa (theo khoảng cách ước tính) thì thôi bắt lùi — hết cảnh lùi vô tận |
 | **Máy nghiêng** | Luôn nói về máy: *"Xoay máy (ngược) chiều kim đồng hồ"*. Ảnh chụp từ trên cao (thân co rút) thì bỏ đường trục thân |
 | **Thứ tự nhắc** | Cố định theo bước: xoay thẳng máy → khoảng cách → góc/độ cao → zoom → bố cục → hướng mẫu → dáng. Bước sau chờ, không chen lên |
-| **Selfie** | Câu dáng bỏ chữ "Bảo mẫu" |
+| **Selfie** | Câu dáng bỏ chữ "Bảo mẫu". Câu "chưa đo được" nói "duỗi tay ra xa" thay cho "lùi ra" |
 | **Không đo được lâu** | Không còn im lặng, và không báo "sẵn sàng" giả. Tự động bỏ qua mục kẹt sau khoảng 6 giây; bấm tay luôn được phép chụp |
 
 ## 5. Tài liệu và công cụ

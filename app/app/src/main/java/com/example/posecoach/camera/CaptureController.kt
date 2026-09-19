@@ -318,6 +318,11 @@ class CaptureController(
             // không báo lỗi, chỉ có hướng dẫn sai (FOOTGUNS mục 10).
             imageAnalysis?.targetRotation = next.surfaceRotation
             videoCapture?.targetRotation = next.surfaceRotation
+            // ⚠️ Cả bộ CHỤP ẢNH (chế độ chụp liên tục) — thiếu dòng này thì ảnh ra nằm
+            // ngang (video test 19/09/2026): cảm biến lỡ báo "ngang" lúc máy chúc gần
+            // phẳng, người dùng đổi sang chụp liên tục đúng lúc đó, bộ chụp dựng theo
+            // hướng ngang và không bao giờ được sửa lại (FOOTGUNS 95).
+            imageCapture?.targetRotation = next.surfaceRotation
             onRotationChanged(next)
         }
     }
