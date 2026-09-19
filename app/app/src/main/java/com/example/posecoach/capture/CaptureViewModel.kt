@@ -381,6 +381,7 @@ class CaptureViewModel : ViewModel() {
             liveFrame = if (detected) frame else null,
             minVis = minVisibility,
             allowSkip = _state.value.autoMode,
+            vFovDeg = vFovDeg,
         )
 
         _state.update {

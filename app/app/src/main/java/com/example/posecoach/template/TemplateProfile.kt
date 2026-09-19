@@ -289,25 +289,6 @@ data class TemplateProfile(
     /** Nhóm khớp được chấm ở mục dáng. Chân dung cận không có nhóm chân. */
     val poseGroups: Set<PoseGroup>,
 
-    /**
-     * Ảnh mẫu này CỐ TÌNH chụp sát bằng ống góc rộng để tạo méo phối cảnh.
-     *
-     * Hai kiểu quen thuộc: chúc từ trên cao xuống cho đầu và thân trên to ra, và
-     * ngửa từ dưới lên cho chân dài ra. Méo đã nướng vào ảnh, và quan trọng hơn:
-     * **không tái hiện được bằng cách đứng xa rồi zoom vào** — zoom từ xa cho ra
-     * ảnh phẳng, mất đúng cái làm nên tấm ảnh.
-     *
-     * Nên nhóm này phải hướng dẫn *"tiến sát vào, giữ zoom 1x"* và CẤM zoom. Ảnh
-     * chụp thường thì ngược lại: lùi ra rồi zoom vào cho tỉ lệ đẹp.
-     *
-     * ⚠️ Trước 12/09/2026 app KHÔNG phân biệt được, và `CuePresenter` tự ghi nhận:
-     * *"App không biết ảnh mẫu thuộc kiểu nào thì đừng giả vờ biết"* — nên nó đưa
-     * cả hai lựa chọn cho người dùng tự chọn. Nhưng đẩy một quyết định nhiếp ảnh
-     * sang người không biết nhiếp ảnh là đúng thứ sản phẩm này sinh ra để tránh.
-     *
-     * Nay phân biệt được, vì đã đo được góc máy bằng độ.
-     */
-    val chupSat: Boolean = false,
 ) {
     /** Tiêu chí áp dụng ở một chỗ cụ thể. Hướng dẫn realtime ít mục hơn chọn ảnh. */
     fun activeFor(stage: Stage): Set<Criterion> =
@@ -335,16 +316,10 @@ data class TemplateProfile(
          * đo thật rồi mới kết luận.
          */
         /**
-         * Góc máy vượt mức này thì coi ảnh mẫu là CỐ TÌNH chụp sát để tạo méo.
-         *
-         * Từ 16/09/2026 góc máy ảnh mẫu chỉ lấy từ NHÃN, nhận đúng ba giá trị
-         * −35° (trên cao) / 0° (ngang) / +25° (dưới thấp). Nhãn "trên" và "dưới"
-         * chính là ảnh cố tình chụp méo, nên ngưỡng chỉ cần nằm giữa 0 và 25.
-         *
-         * Bản cũ (30°) đo trên góc trục thân suy từ ảnh — con số đó lẫn dáng đứng
-         * và ống kính, xem FOOTGUNS 91.
+         * Ảnh mẫu góc máy gắt từ mức này thì bỏ mục độ méo — xem FOOTGUNS 99. Nhãn góc chỉ
+         * có −35 / 0 / +25 nên mức nằm giữa 0 và 25 là tách đúng "trên/dưới" khỏi "ngang".
          */
-        const val GOC_CHUP_SAT_DEG = 20.0
+        const val GOC_GAT_DEG = 20.0
 
         private const val KHONG_NHAN_GOC =
             "ảnh mẫu chưa gắn nhãn góc máy (trên cao / ngang tầm / dưới thấp)"
@@ -374,6 +349,11 @@ data class TemplateProfile(
                     gocMayNhan, doAnh.elevationAnchorY, Measurer.VFOV_ANH_MAU,
                 ),
             )
+            // ⚠️ ẢNH MẪU GÓC GẮT THÌ KHÔNG ĐO ĐỘ MÉO (19/09/2026) — FOOTGUNS 99.
+            // Độ méo đo bằng tỉ lệ thân/chân trên ảnh. Chụp từ trên cao thì chân co
+            // ngắn lại y như đứng gần; từ dưới thấp thì ngược lại. PO test ảnh chụp từ
+            // trên cao mà đứng xa: app bảo "lùi thêm 1 bước" mãi.
+            val gocGat = gocMayNhan != null && kotlin.math.abs(gocMayNhan) >= GOC_GAT_DEG
             val active = mutableSetOf<Criterion>()
             val skipped = linkedMapOf<Criterion, String>()
 
@@ -414,8 +394,12 @@ data class TemplateProfile(
             // nói đúng nguyên nhân: lớp khung hình trước, rồi mới tới chuyện đo được.
             check(
                 Criterion.PERSPECTIVE,
-                framing.seesLegs && m.perspectiveIndex.isNotEmpty(),
-                if (!framing.seesLegs) {
+                framing.seesLegs && m.perspectiveIndex.isNotEmpty() && !gocGat,
+                if (gocGat) {
+                    "ảnh mẫu chụp từ trên cao hoặc dưới thấp — góc máy làm thân/chân co giãn " +
+                        "y như đứng gần, không tách được khoảng cách. App đưa cả hai lựa chọn: " +
+                        "đi bộ hoặc zoom"
+                } else if (!framing.seesLegs) {
                     // ⚠️ KHÔNG nói "giữ zoom ở 1x" nữa. Câu đó mâu thuẫn thẳng với
                     // lời nhắc realtime, vốn đưa cả hai lựa chọn đi bộ HOẶC zoom.
                     "ảnh mẫu là ảnh cận nên app không tự kiểm được zoom — " +
@@ -447,7 +431,6 @@ data class TemplateProfile(
                 active = active,
                 skipped = skipped,
                 poseGroups = framing.poseGroups,
-                chupSat = m.tiltDeg?.let { kotlin.math.abs(it) > GOC_CHUP_SAT_DEG } == true,
             )
         }
     }

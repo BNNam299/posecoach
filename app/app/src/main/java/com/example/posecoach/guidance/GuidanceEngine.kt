@@ -184,6 +184,8 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         minVis: Float = 0.5f,
         /** Chế độ tự động được phép bỏ qua một bước không hội tụ để tránh kẹt vô hạn. */
         allowSkip: Boolean = false,
+        /** Góc mở dọc đang dùng, độ — để ước lượng khoảng cách theo ống kính thật. */
+        vFovDeg: Double? = null,
     ): GuidanceResult {
         // Chưa thấy người: xoá đồng hồ ổn định, nhưng KHÔNG reset các cổng —
         // mất dấu một lúc rồi bắt lại được thì không nên bắt người ta làm lại từ đầu.
@@ -248,8 +250,9 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                     val muonLui = (signedDelta(c, t, live) ?: 0.0) > 0.0
                     val dangCach = DistanceEstimator.estimate(
                         live.scale, live.anchorHeightMeters, zoomRatio,
+                        DistanceEstimator.heSoOngKinh(vFovDeg, zoomRatio),
                     )
-                    if (!profile.chupSat && muonLui && dangCach != null &&
+                    if (muonLui && dangCach != null &&
                         dangCach >= DistanceEstimator.minStandoffMeters(profile.framing)
                     ) 0.0 else d
                 }
@@ -268,12 +271,14 @@ class GuidanceEngine(private val profile: TemplateProfile) {
                 deviation = trusted,
                 signedDelta = signedDelta(c, t, live),
                 band = band,
-                moveMeters = moveMetersFor(c, t, live, zoomRatio),
+                moveMeters = moveMetersFor(c, t, live, zoomRatio, vFovDeg),
                 // Ảnh chân dung không có mục chỗ đứng, nên mục khung hình phải nói
                 // đi bộ chứ không nói zoom — app không biết người dùng đang zoom
                 // hay đang đứng sai chỗ.
-                walkInsteadOfZoom = c == Criterion.SCALE && !profile.framing.seesLegs,
-                chupSat = profile.chupSat,
+                // Không có bước khoảng cách (ảnh cận, chân chĩa vào máy, ảnh mẫu góc
+                // gắt) thì app không biết người dùng đứng sai chỗ hay zoom sai — đưa
+                // cả hai lựa chọn.
+                walkInsteadOfZoom = c == Criterion.SCALE && Criterion.PERSPECTIVE !in applicable,
                 rollFromDevice = rollFromDevice,
                 gocMauKhongCoCaoThap = if (c == Criterion.PITCH && Criterion.ELEVATION !in applicable) {
                     t.tiltDeg
@@ -563,12 +568,14 @@ class GuidanceEngine(private val profile: TemplateProfile) {
         t: PoseMeasurement,
         live: PoseMeasurement,
         zoomRatio: Float,
+        vFovDeg: Double?,
     ): Double? {
         if (c != Criterion.PERSPECTIVE && c != Criterion.SCALE) return null
-        val now = DistanceEstimator.estimate(live.scale, live.anchorHeightMeters, zoomRatio)
+        val heSo = DistanceEstimator.heSoOngKinh(vFovDeg, zoomRatio)
+        val now = DistanceEstimator.estimate(live.scale, live.anchorHeightMeters, zoomRatio, heSo)
             ?: return null
         // Khoảng cách đứng nếu chụp đúng khung của ảnh mẫu mà KHÔNG zoom.
-        val atOneX = DistanceEstimator.estimate(t.scale, live.anchorHeightMeters, 1f)
+        val atOneX = DistanceEstimator.estimate(t.scale, live.anchorHeightMeters, 1f, heSo)
         val target = maxOf(DistanceEstimator.minStandoffMeters(profile.framing), atOneX ?: 0.0)
         return kotlin.math.abs(target - now)
     }

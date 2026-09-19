@@ -94,12 +94,35 @@ object DistanceEstimator {
      * @param realHeightMeters chiều cao THẬT của chính mốc đó, từ `worldLandmarks`
      * @param zoomRatio mức zoom hiện tại của camera (1,0 = không zoom)
      */
-    fun estimate(scaleInFrame: Double?, realHeightMeters: Double?, zoomRatio: Float): Double? {
+    /**
+     * Hệ số ống kính `C = 1 / (2·tan(vFOV₁ₓ/2))` tính từ GÓC MỞ THẬT của máy (19/09/2026).
+     *
+     * [LENS_CONSTANT] là số giả định cho ống kính điện thoại phổ thông (vFOV ~73°).
+     * Máy có ống kính khác, hoặc người dùng chọn khung 1:1 (cắt trên dưới nên góc mở
+     * dọc hẹp lại), thì hằng số đó sai theo. Có góc mở thật thì dùng góc mở thật.
+     *
+     * @param vFovDeg góc mở dọc ĐANG DÙNG (đã tính zoom và tỉ lệ khung), độ
+     * @return `null` khi số vô lý — lúc đó lùi về [LENS_CONSTANT]
+     */
+    fun heSoOngKinh(vFovDeg: Double?, zoomRatio: Float): Double? {
+        val v = vFovDeg ?: return null
+        if (v < 10.0 || v > 130.0) return null
+        val tanNua1x = kotlin.math.tan(Math.toRadians(v) / 2.0) * zoomRatio
+        return if (tanNua1x <= 1e-6) null else 1.0 / (2.0 * tanNua1x)
+    }
+
+    fun estimate(
+        scaleInFrame: Double?,
+        realHeightMeters: Double?,
+        zoomRatio: Float,
+        /** Từ [heSoOngKinh]. `null` = dùng [LENS_CONSTANT]. */
+        heSo: Double? = null,
+    ): Double? {
         val s = scaleInFrame ?: return null
         val h = realHeightMeters ?: return null
         // Mốc quá nhỏ trong khung hoặc chiều cao thật vô lý -> phép chia nổ tung.
         if (s < 0.02 || h < 0.05 || h > 3.0) return null
-        return LENS_CONSTANT * zoomRatio * h / s
+        return (heSo ?: LENS_CONSTANT) * zoomRatio * h / s
     }
 
     /**

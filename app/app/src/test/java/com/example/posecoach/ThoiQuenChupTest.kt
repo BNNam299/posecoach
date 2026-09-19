@@ -163,47 +163,51 @@ class ThoiQuenChupTest {
     }
 
     // =================================================================
-    // Tách ảnh méo có chủ ý khỏi ảnh chụp thường
+    // Ảnh mẫu góc gắt: bỏ bước khoảng cách, đưa cả hai lựa chọn (19/09/2026)
     // =================================================================
 
-    // Từ 16/09/2026 "méo chủ ý" đọc từ NHÃN góc máy, không từ khung xương (FOOTGUNS 91).
     private fun profileCoNhan(goc: MediaLibrary.GocMayNhan?): TemplateProfile {
         val f = nguoi(0.0)
         return TemplateProfile.from(f, FramingClass.detect(f, minVis)!!, minVis, gocMayNhan = goc?.doNghieng)
     }
 
     @Test
-    fun `anh chup thuong KHONG bi coi la meo chu y`() {
-        assertFalse(profileCoNhan(MediaLibrary.GocMayNhan.NGANG).chupSat)
-        // Khung xương nghiêng mạnh mà không có nhãn thì cũng không được đoán là méo.
-        assertFalse(profileCua(nguoi(-52.8)).chupSat)
+    fun `anh mau ngang tam van do do meo de chon cho dung`() {
+        assertTrue(Criterion.PERSPECTIVE in profileCoNhan(MediaLibrary.GocMayNhan.NGANG).active)
     }
 
     @Test
-    fun `anh chuc tu tren cao va ngua tu duoi len LA meo chu y`() {
-        assertTrue(profileCoNhan(MediaLibrary.GocMayNhan.TREN).chupSat)
-        assertTrue(profileCoNhan(MediaLibrary.GocMayNhan.DUOI).chupSat)
+    fun `anh mau chup tu tren cao hoac duoi thap thi BO do meo`() {
+        // PO test: ảnh chụp từ trên cao mà đứng xa, app bảo "lùi thêm 1 bước" mãi —
+        // chân co ngắn do góc máy bị đọc thành "đang đứng gần".
+        for (g in listOf(MediaLibrary.GocMayNhan.TREN, MediaLibrary.GocMayNhan.DUOI)) {
+            val p = profileCoNhan(g)
+            assertFalse("$g", Criterion.PERSPECTIVE in p.active)
+            assertTrue("$g phải nói rõ vì sao bỏ", p.skipped[Criterion.PERSPECTIVE]!!.contains("trên cao"))
+        }
     }
 
     @Test
-    fun `nguong nam GIUA nhan ngang va nhan tren duoi`() {
-        val nguong = TemplateProfile.GOC_CHUP_SAT_DEG
+    fun `nguong goc gat nam GIUA nhan ngang va nhan tren duoi`() {
+        val nguong = TemplateProfile.GOC_GAT_DEG
         val lech = MediaLibrary.GocMayNhan.entries.map { kotlin.math.abs(it.doNghieng) }
         assertTrue(nguong > lech.min() + 5)
         assertTrue(nguong < lech.filter { it > 0 }.min() - 3)
     }
 
     @Test
-    fun `khong do duoc goc thi KHONG coi la meo chu y`() {
-        // Ảnh chân dung không thấy hông. Đoán bừa "méo chủ ý" sẽ cấm zoom oan.
-        val chanDung = frameOf(
-            Lm.NOSE to Triple(P2(0.50, 0.46), 0.99f, P3(0.0, -0.60, 0.0)),
-            Lm.LEFT_EYE to Triple(P2(0.60, 0.30), 0.99f, P3(0.03, -0.62, 0.0)),
-            Lm.RIGHT_EYE to Triple(P2(0.40, 0.30), 0.99f, P3(-0.03, -0.62, 0.0)),
-            Lm.LEFT_SHOULDER to Triple(P2(0.75, 0.80), 0.99f, P3(0.18, -0.45, 0.0)),
-            Lm.RIGHT_SHOULDER to Triple(P2(0.25, 0.80), 0.99f, P3(-0.18, -0.45, 0.0)),
-        )
-        val framing = FramingClass.detect(chanDung, minVis)!!
-        assertFalse(TemplateProfile.from(chanDung, framing, minVis).chupSat)
+    fun `khong co buoc khoang cach thi cau khung hinh dua ca hai lua chon`() {
+        val profile = profileCoNhan(MediaLibrary.GocMayNhan.TREN)
+        val engine = GuidanceEngine(profile)
+        val live = Measurer.measure(nguoi(0.0), profile.framing, minVis).let {
+            it.copy(scale = (it.scale ?: 0.5) * 0.6, tiltDeg = -35.0,
+                pitchCue = it.pitchCue + (com.example.posecoach.measure.PitchSource.GOC_MAY to -35.0),
+                elevationDeg = Measurer.gocNhin(-35.0, it.elevationAnchorY, 65.0))
+        }
+        var r = engine.update(live = live, nowMs = 0L, angularSpeedDegPerSec = 0.0)
+        var t = 0L
+        repeat(80) { t += 100; r = engine.update(live = live, nowMs = t, angularSpeedDegPerSec = 0.0) }
+        val scale = r.statuses.first { it.criterion == Criterion.SCALE }
+        assertTrue(scale.walkInsteadOfZoom)
     }
 }

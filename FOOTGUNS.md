@@ -2609,3 +2609,14 @@ còn lại 4:3, để phần cắt luôn nằm trong vùng đã quay.
 **Vì sao:** mục 97 — lệch một chỗ là người dùng canh một khung, app chấm khung khác,
 ảnh ra khung thứ ba. Video FHD mặc định là 16:9, hẹp hơn khung xem trước 3:4: nếu
 không đổi khung quay theo tỉ lệ thì ảnh ra 3:4 bị thiếu hai bên so với lúc canh.
+
+
+## 99. Độ méo (thân/chân) lẫn cả góc máy — ảnh chụp từ trên cao bị đọc thành "đứng gần"
+
+**Sai:** đo bước khoảng cách bằng tỉ lệ thân/chân với mọi ảnh mẫu, và coi mọi nhãn
+`tren`/`duoi` là "chụp sát có chủ ý" (tắt chặn lùi vô tận, cấm zoom).
+**Đúng:** ảnh mẫu nhãn `tren`/`duoi` BỎ mục độ méo; mục khung hình đưa cả hai lựa chọn
+"đi bộ hoặc zoom". Bỏ hẳn cờ `chupSat` — góc máy và độ gần là hai chuyện khác nhau.
+**Vì sao:** PO test 19/09/2026 ảnh chụp từ trên cao mà đứng xa: app bảo "lùi thêm 1 bước"
+mãi. Chụp từ trên cao thì chân xa ống kính hơn nên co ngắn — y như đứng gần; từ dưới
+thấp thì ngược lại. Ảnh không tách được hai nguyên nhân, nên không đo (quy tắc số 4).

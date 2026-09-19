@@ -30,19 +30,12 @@ data class CriterionStatus(
     /**
      * Mục khung hình phải nói ĐI BỘ thay vì ZOOM.
      *
-     * Bật khi ảnh mẫu là ảnh chân dung — lớp đó không kiểm được zoom nên app không
-     * biết người dùng đang zoom hay đang đứng sai chỗ. Lúc đó bảo đi bộ là an toàn,
-     * vì zoom đã bị khoá về 1x ở tầng cảnh báo cầm máy.
+     * Bật khi ảnh mẫu KHÔNG có bước khoảng cách (ảnh cận, chân chĩa vào máy, ảnh mẫu
+     * chụp từ trên cao/dưới thấp): app không biết người dùng đứng sai chỗ hay zoom
+     * sai, nên câu đưa cả hai lựa chọn đi bộ hoặc zoom.
      */
     val walkInsteadOfZoom: Boolean = false,
 
-    /**
-     * Ảnh mẫu cố tình chụp sát để tạo méo phối cảnh — xem `TemplateProfile.chupSat`.
-     *
-     * Bật thì câu nhắc phải bảo ĐI BỘ và GIỮ 1x, cấm zoom: zoom từ xa cho ra ảnh
-     * phẳng, mất đúng hiệu ứng làm nên tấm ảnh đó.
-     */
-    val chupSat: Boolean = false,
     /** Câu nhắc chỉnh dáng theo khớp lệch nhất. Chỉ có ở mục dáng. */
     val poseHint: String? = null,
     /**
@@ -255,6 +248,18 @@ class CuePresenter {
  * nên hình không bị lật gương: trái/phải trong khung đúng bằng trái/phải của
  * người đang cầm máy.
  */
+/**
+ * NẤC ZOOM để đọc lên — số zoom đích tính từ cỡ người trong khung, mà cỡ đó dao
+ * động theo từng khung xương. Nói "2.0x" rồi "2.2x" rồi "2.1x" làm người dùng
+ * tưởng phải chỉnh mãi (video test 19/09/2026). Dưới 1x: nấc 0,1 (0.5 … 0.9); từ
+ * 1x tới dưới 3x: nấc 0,5; từ 3x: nấc 1.
+ */
+internal fun lamTronZoom(z: Float): Float = when {
+    z < 1f -> (Math.round(z * 10f) / 10f).coerceAtLeast(0.1f)
+    z < 3f -> Math.round(z * 2f) / 2f
+    else -> Math.round(z).toFloat()
+}
+
 /** Ảnh mẫu chúc/ngửa gắt từ mức này trở lên thì máy buộc phải đổi độ cao, không chỉ đổi góc. */
 private const val GOC_GAT_DEG = 20.0
 
@@ -356,11 +361,6 @@ internal fun cueTextFor(status: CriterionStatus): String {
         Criterion.SCALE -> when {
             // ẢNH MÉO CÓ CHỦ Ý — phải đi bộ, và phải giữ 1x. Zoom là đường tắt
             // dẫn tới một tấm ảnh khác hẳn: đúng cỡ mẫu trong khung nhưng phẳng.
-            status.chupSat && !status.tamTay -> if (signed > 0) {
-                "Lùi lại " + status.stepsPhrase() + ", giữ zoom 1x"
-            } else {
-                "Tiến sát vào " + status.stepsPhrase() + ", giữ zoom 1x"
-            }
 
             // ẢNH CHÂN DUNG — app KHÔNG kiểm được zoom ở lớp này, nên nó thật sự
             // không biết người dùng đang đứng sai chỗ hay đang zoom sai. Đưa CẢ HAI
@@ -380,7 +380,7 @@ internal fun cueTextFor(status: CriterionStatus): String {
                 "Tiến lên " + status.stepsPhrase() + ", hoặc zoom vào từ từ đến khi tích sáng"
             }
             status.targetZoom != null -> {
-                val muc = "%.1f".format(status.targetZoom).replace(',', '.')
+                val muc = "%.1f".format(lamTronZoom(status.targetZoom)).replace(',', '.')
                 "Đặt zoom khoảng ${muc}x đến khi tích sáng"
             }
             signed > 0 -> "Zoom ra từ từ đến khi tích sáng"
