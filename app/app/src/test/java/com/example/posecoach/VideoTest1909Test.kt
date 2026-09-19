@@ -37,15 +37,6 @@ class VideoTest1909Test {
     }
 
     @Test
-    fun `so zoom lam tron thanh nac de cau nhac dung yen`() {
-        val r = com.example.posecoach.guidance.lamTronZoom(2.2f)
-        assertTrue("$r", r == 2.0f)
-        assertTrue(com.example.posecoach.guidance.lamTronZoom(2.3f) == 2.5f)
-        assertTrue(com.example.posecoach.guidance.lamTronZoom(0.72f) == 0.7f)
-        assertTrue(com.example.posecoach.guidance.lamTronZoom(4.4f) == 4.0f)
-    }
-
-    @Test
     fun `he so ong kinh tinh tu goc mo that, trung hang so cu voi may 73 do`() {
         val h = com.example.posecoach.guidance.DistanceEstimator.heSoOngKinh(73.0, 1f)!!
         assertTrue("$h", kotlin.math.abs(h - 0.678) < 0.01)

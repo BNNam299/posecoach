@@ -91,7 +91,7 @@ giữ nguyên ảnh người dùng tự nhập.
 |---|---|
 | **Hướng mẫu** | Câu nhắc nói rõ chiều: *"Bảo mẫu xoay người sang phải/trái"*, lệch quá 120° thì *"quay hẳn người lại"*. Chỉ so khi ảnh mẫu và camera đo cùng một cách (vai hoặc mặt). Camera trước lật dấu góc mặt |
 | **Chân dung** | Góc mặt lấy từ ML Kit. Ảnh mẫu mất mốc cỡ người (cụt đầu) thì so bằng khung mặt |
-| **Xa/gần** | Đã lùi đủ xa (theo khoảng cách ước tính) thì thôi bắt lùi — hết cảnh lùi vô tận. Ảnh mẫu chụp từ trên cao/dưới thấp bỏ bước đo độ méo, câu nhắc đưa cả hai lựa chọn "đi bộ hoặc zoom". Khoảng cách ước tính dùng góc mở thật của ống kính từng máy. Số zoom làm tròn theo nấc (0.1 dưới 1x, 0.5 tới 3x, 1 từ 3x) |
+| **Xa/gần** | Đã lùi đủ xa (theo khoảng cách ước tính) thì thôi bắt lùi — hết cảnh lùi vô tận. Ảnh mẫu chụp từ trên cao/dưới thấp bỏ bước đo độ méo, câu nhắc đưa cả hai lựa chọn "đi bộ hoặc zoom". Khoảng cách ước tính dùng góc mở thật của ống kính từng máy. |
 | **Máy nghiêng** | Luôn nói về máy: *"Xoay máy (ngược) chiều kim đồng hồ"*. Ảnh chụp từ trên cao (thân co rút) thì bỏ đường trục thân |
 | **Thứ tự nhắc** | Cố định theo bước: xoay thẳng máy → khoảng cách → góc/độ cao → zoom → bố cục → hướng mẫu → dáng. Bước sau chờ, không chen lên |
 | **Selfie** | Câu dáng bỏ chữ "Bảo mẫu". Câu "chưa đo được" nói "duỗi tay ra xa" thay cho "lùi ra" |

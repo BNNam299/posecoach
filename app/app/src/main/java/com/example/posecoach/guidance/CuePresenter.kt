@@ -248,18 +248,6 @@ class CuePresenter {
  * nên hình không bị lật gương: trái/phải trong khung đúng bằng trái/phải của
  * người đang cầm máy.
  */
-/**
- * NẤC ZOOM để đọc lên — số zoom đích tính từ cỡ người trong khung, mà cỡ đó dao
- * động theo từng khung xương. Nói "2.0x" rồi "2.2x" rồi "2.1x" làm người dùng
- * tưởng phải chỉnh mãi (video test 19/09/2026). Dưới 1x: nấc 0,1 (0.5 … 0.9); từ
- * 1x tới dưới 3x: nấc 0,5; từ 3x: nấc 1.
- */
-internal fun lamTronZoom(z: Float): Float = when {
-    z < 1f -> (Math.round(z * 10f) / 10f).coerceAtLeast(0.1f)
-    z < 3f -> Math.round(z * 2f) / 2f
-    else -> Math.round(z).toFloat()
-}
-
 /** Ảnh mẫu chúc/ngửa gắt từ mức này trở lên thì máy buộc phải đổi độ cao, không chỉ đổi góc. */
 private const val GOC_GAT_DEG = 20.0
 
@@ -380,7 +368,7 @@ internal fun cueTextFor(status: CriterionStatus): String {
                 "Tiến lên " + status.stepsPhrase() + ", hoặc zoom vào từ từ đến khi tích sáng"
             }
             status.targetZoom != null -> {
-                val muc = "%.1f".format(lamTronZoom(status.targetZoom)).replace(',', '.')
+                val muc = "%.1f".format(status.targetZoom).replace(',', '.')
                 "Đặt zoom khoảng ${muc}x đến khi tích sáng"
             }
             signed > 0 -> "Zoom ra từ từ đến khi tích sáng"
