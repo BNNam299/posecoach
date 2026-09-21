@@ -6,9 +6,16 @@ import numpy as np
 import mediapipe as mp
 from mediapipe.tasks import python as mpp
 from mediapipe.tasks.python import vision
+from pathlib import Path
+# Duong dan TUONG DOI theo vi tri du an — khong ghi o dia hay ten nguoi dung may.
+GOC = Path(__file__).resolve().parents[2]          # thu muc goc du an
+MODEL_APP = GOC / "app" / "app" / "src" / "main" / "assets" / "pose_landmarker_full.task"
+TEST_MEDIA = GOC / "test-media"
+KET_QUA = Path(__file__).resolve().parent / "_ket-qua"  # khong day len Git
+KET_QUA.mkdir(exist_ok=True)
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-MODEL = r"D:\PROJECTS\Pj-demo\app\app\src\main\assets\pose_landmarker_full.task"
-VIDEO = r"D:\PROJECTS\Pj-demo\test-media\9-selfie-goc\selfie-goc.mp4"
+MODEL = str(MODEL_APP)
+VIDEO = str(TEST_MEDIA / "9-selfie-goc" / "selfie-goc.mp4")
 det = vision.PoseLandmarker.create_from_options(vision.PoseLandmarkerOptions(
     base_options=mpp.BaseOptions(model_asset_path=MODEL),
     running_mode=vision.RunningMode.IMAGE, num_poses=1))
@@ -68,7 +75,7 @@ c, *_ = np.linalg.lstsq(X, s, rcond=None)
 print(f"ket hop tat ca: sai so TB {np.abs(X @ c - s).mean():.1f} do")
 # phan 3 nhom
 nhom = lambda g: np.where(g <= -15, 0, np.where(g >= 15, 2, 1))
-np.save(r"C:\Users\BNNAM\AppData\Local\Temp\claude\d--PROJECTS-Pj-demo\f5bb0ec0-8855-49ce-9c37-c32cab065072\scratchpad\selfie_feats.npy", A)
+np.save(KET_QUA / "selfie_feats.npy", A)
 for i, ten in enumerate(TEN):
     x = A[:, 2 + i]
     print(f"  {ten:20s}", "  ".join(f"{['tren','ngang','duoi'][g]}: {x[nhom(s)==g].mean():+.3f}±{x[nhom(s)==g].std():.3f}" for g in range(3)))

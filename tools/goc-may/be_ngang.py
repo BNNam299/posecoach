@@ -6,10 +6,17 @@ import numpy as np, cv2
 import mediapipe as mp
 from mediapipe.tasks import python as mpp
 from mediapipe.tasks.python import vision
+from pathlib import Path
+# Duong dan TUONG DOI theo vi tri du an — khong ghi o dia hay ten nguoi dung may.
+GOC = Path(__file__).resolve().parents[2]          # thu muc goc du an
+MODEL_APP = GOC / "app" / "app" / "src" / "main" / "assets" / "pose_landmarker_full.task"
+TEST_MEDIA = GOC / "test-media"
+KET_QUA = Path(__file__).resolve().parent / "_ket-qua"  # khong day len Git
+KET_QUA.mkdir(exist_ok=True)
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-ROOT = r"D:\PROJECTS\Pj-demo\test-media\11-tren-cao-khoang-cach"
-MODEL = r"D:\PROJECTS\Pj-demo\app\app\src\main\assets\pose_landmarker_full.task"
-SP = r"C:\Users\BNNAM\AppData\Local\Temp\claude\d--PROJECTS-Pj-demo\f5bb0ec0-8855-49ce-9c37-c32cab065072\scratchpad"
+ROOT = str(TEST_MEDIA / "11-tren-cao-khoang-cach")
+MODEL = str(MODEL_APP)
+SP = str(KET_QUA)
 det = vision.PoseLandmarker.create_from_options(vision.PoseLandmarkerOptions(
     base_options=mpp.BaseOptions(model_asset_path=MODEL), running_mode=vision.RunningMode.IMAGE, num_poses=1))
 NHOM = ["gan-1x", "goc-rong-0.5x", "xa-zoom"]

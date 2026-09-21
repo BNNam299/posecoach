@@ -100,8 +100,8 @@ hẳn** trên↔dưới, trên ít nhất 2 người và 2 bối cảnh khác nh
 
 ## 7. Công cụ đã có — `tools/goc-may/`
 
-Chạy bằng Python 3.10 (`py -3.10 …`), cần `mediapipe` và `opencv`. ⚠️ Trong script còn đường
-dẫn tuyệt đối tới thư mục tạm của phiên làm việc cũ, sửa lại trước khi chạy.
+Chạy bằng Python 3.10 (`py -3.10 …`), cần `mediapipe` và `opencv`. Đường dẫn tính tương đối
+theo vị trí dự án; kết quả trung gian ghi vào `tools/goc-may/_ket-qua/` (không đẩy lên Git).
 
 - `dai_so.py`: cắt dòng số góc máy từ video quay màn hình thành các dải để đọc.
 - `lech_goc.py` · `hieu_chinh.py`: số cảm biến và số suy từ ảnh (người khác chụp), so các cách hiệu chỉnh.

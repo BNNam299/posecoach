@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
 """Phan 3 nhom tren/ngang/duoi tu dac trung mat-co-vai, kiem bo-mot-ra."""
 import numpy as np
-A = np.load(r"C:\Users\BNNAM\AppData\Local\Temp\claude\d--PROJECTS-Pj-demo\f5bb0ec0-8855-49ce-9c37-c32cab065072\scratchpad\selfie_feats.npy")
+from pathlib import Path
+# Duong dan TUONG DOI theo vi tri du an — khong ghi o dia hay ten nguoi dung may.
+GOC = Path(__file__).resolve().parents[2]          # thu muc goc du an
+MODEL_APP = GOC / "app" / "app" / "src" / "main" / "assets" / "pose_landmarker_full.task"
+TEST_MEDIA = GOC / "test-media"
+KET_QUA = Path(__file__).resolve().parent / "_ket-qua"  # khong day len Git
+KET_QUA.mkdir(exist_ok=True)
+A = np.load(KET_QUA / "selfie_feats.npy")
 s = A[:, 1]; X = A[:, 2:]
 y = np.where(s <= -15, 0, np.where(s >= 15, 2, 1))
 print("so khung moi nhom (tren, ngang, duoi):", [int((y == g).sum()) for g in range(3)])

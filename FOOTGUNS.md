@@ -219,7 +219,7 @@ hổng thật của bản iOS, **không phải mẫu để chép**.
 **Sai:**
 ```properties
 # gradle.properties — vô tác dụng với lỗi JAVA_HOME khi build bằng dòng lệnh
-org.gradle.java.home=C:/Program Files/Android/Android Studio/jbr
+org.gradle.java.home=<thư mục jbr trong Android Studio>
 ```
 
 **Đúng:** đặt `JAVA_HOME` ở tầng môi trường, trước khi `gradlew.bat` chạy. Dự án này dùng
@@ -233,7 +233,7 @@ chạy được. Sai thứ tự nhân-quả: không thể dùng cấu hình củ
 động Gradle.
 
 **Bối cảnh riêng của máy này:** Java không cài riêng mà đi kèm bên trong Android Studio
-(`C:\Program Files\Android\Android Studio\jbr`), nên không có sẵn trong PATH hệ thống. Biến
+(thư mục `jbr` trong thư mục cài Android Studio), nên không có sẵn trong PATH hệ thống. Biến
 `JAVA_HOME` đã được đặt ở phạm vi User, nhưng biến môi trường **chỉ có hiệu lực với tiến
 trình khởi động SAU đó** — phiên làm việc đang mở vẫn không thấy. Đó là lý do script bọc tồn
 tại chứ không phải chỉ đặt biến là xong.
@@ -2643,3 +2643,14 @@ hoàn toàn**; gần/xa có tách nhưng mới 3–5 ảnh mỗi nhóm có đủ
 **Chốt 19/09/2026:** gộp 1x và 0.5x thành `gan` (nhãn `rong` cũ đọc thành `gan`). Đứng gần
 thì mọi mức zoom từ mức nhỏ nhất của máy tới 1x đều được; chỉ nhắc khi zoom vào quá 1x.
 Câu tiến sát gợi ý "giữ 1x, hoặc zoom ra 0.5–0.7x nếu muốn kiểu mắt cá" (máy có góc rộng).
+
+
+## 101. Đường dẫn ổ đĩa và tên máy KHÔNG được vào Git
+
+**Sai:** ghi `org.gradle.java.home=C:/...` vào `app/gradle.properties`, đường dẫn Java vào
+`gradlew-cc.bat`, và `C:\Users\<tên>\...` / `D:\PROJECTS\...` vào script `tools/`.
+**Đúng:** đường dẫn Java để ở `%USERPROFILE%\.gradle\gradle.properties` của từng máy (ngoài
+Git) hoặc biến `JAVA_HOME`; script tính đường dẫn tương đối theo `__file__`. Trước mỗi lần
+đẩy: `git grep -I -n -i -E "[A-Za-z]:[\\/](Users|PROJECTS|Program Files)|AppData|api[_-]?key"`.
+**Vì sao:** 21/09/2026 máy thứ hai kéo nhánh về không build được — Gradle đọc đường dẫn Java
+của máy kia. PO: không để lộ biến môi trường, khoá API, đường dẫn `C:/` trên GitHub.

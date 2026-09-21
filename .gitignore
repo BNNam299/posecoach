@@ -41,3 +41,6 @@ Thumbs.db
 # nen van ghi so o day (xem dong phu dinh ben duoi).
 # ==========================================================
 legacy-ios/
+
+# Ket qua trung gian cua script phan tich (duong dan may, du lieu tam)
+tools/goc-may/_ket-qua/

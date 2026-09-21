@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 import runpy, numpy as np
-ns = runpy.run_path(r"C:\Users\BNNAM\AppData\Local\Temp\claude\d--PROJECTS-Pj-demo\f5bb0ec0-8855-49ce-9c37-c32cab065072\scratchpad\lech_goc.py")
+from pathlib import Path
+# Duong dan TUONG DOI theo vi tri du an — khong ghi o dia hay ten nguoi dung may.
+GOC = Path(__file__).resolve().parents[2]          # thu muc goc du an
+MODEL_APP = GOC / "app" / "app" / "src" / "main" / "assets" / "pose_landmarker_full.task"
+TEST_MEDIA = GOC / "test-media"
+KET_QUA = Path(__file__).resolve().parent / "_ket-qua"  # khong day len Git
+KET_QUA.mkdir(exist_ok=True)
+ns = runpy.run_path(str(Path(__file__).resolve().parent / "lech_goc.py"))
 a = np.array(ns["cap"], float); s, g = a[:, 1], a[:, 2]
 print("\n--- chia theo SO SUY TU ANH (thu app thuc su co voi anh mau) ---")
 for lo, hi in [(-60, -35), (-35, -25), (-25, -20), (-20, -15), (-15, -10), (-10, -5), (-5, 5)]:

@@ -9,11 +9,14 @@ REM không cứu được bước này.
 REM
 REM Chỉ đặt JAVA_HOME khi nó còn trống, để không đè lên cấu hình sẵn có của máy.
 REM
-REM ⚠️ Đường dẫn dưới đây RIÊNG CHO MÁY NÀY. Máy khác cài Android Studio ở chỗ
-REM    khác thì sửa lại dòng set bên dưới.
+REM ⚠️ KHÔNG ghi đường dẫn ổ đĩa ở đây — file này nằm trong Git (21/09/2026). Mỗi máy
+REM    tự đặt biến JAVA_HOME; thiếu thì script báo rõ rồi dừng.
 REM ---------------------------------------------------------------------------
 
-if "%JAVA_HOME%"=="" set "JAVA_HOME=C:\Program Files\Android\Android Studio\jbr"
+if "%JAVA_HOME%"=="" (
+    echo Chua dat bien JAVA_HOME. Dat JAVA_HOME tro toi thu muc Java cua may nay ^(Android Studio co san: thu muc "jbr" trong thu muc cai Android Studio^) roi chay lai.
+    exit /b 1
+)
 
 call "%~dp0gradlew.bat" %*
 exit /b %ERRORLEVEL%
