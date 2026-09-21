@@ -2648,7 +2648,7 @@ Câu tiến sát gợi ý "giữ 1x, hoặc zoom ra 0.5–0.7x nếu muốn ki�
 ## 101. Đường dẫn ổ đĩa và tên máy KHÔNG được vào Git
 
 **Sai:** ghi `org.gradle.java.home=C:/...` vào `app/gradle.properties`, đường dẫn Java vào
-`gradlew-cc.bat`, và `C:\Users\<tên>\...` / `D:\PROJECTS\...` vào script `tools/`.
+`gradlew-cc.bat`, và đường dẫn ổ đĩa kèm tên người dùng máy vào script `tools/`.
 **Đúng:** đường dẫn Java để ở `%USERPROFILE%\.gradle\gradle.properties` của từng máy (ngoài
 Git) hoặc biến `JAVA_HOME`; script tính đường dẫn tương đối theo `__file__`. Trước mỗi lần
 đẩy: `git grep -I -n -i -E "[A-Za-z]:[\\/](Users|PROJECTS|Program Files)|AppData|api[_-]?key"`.
