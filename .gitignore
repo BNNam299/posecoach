@@ -44,3 +44,7 @@ legacy-ios/
 
 # Ket qua trung gian cua script phan tich (duong dan may, du lieu tam)
 tools/goc-may/_ket-qua/
+
+# File bien dich Python - co ghi duong dan o dia ben trong
+__pycache__/
+*.pyc
